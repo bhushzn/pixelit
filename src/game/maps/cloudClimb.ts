@@ -158,6 +158,11 @@ export const CLOUD_CLIMB_MAP: MapDefinition = {
   ],
 
   // Separate invisible finish trigger (does NOT block player, triggers once)
+  powerUps: [
+    { x: 1600, y: 440 },
+    { x: 4500, y: 420 },
+  ],
+
   finishTrigger: {
     x: 6460,
     y: 360,

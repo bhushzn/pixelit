@@ -1,3 +1,10 @@
+export interface PowerUpPickupDef {
+  x: number;
+  y: number;
+  id?: string;
+  pool?: string;
+}
+
 export interface PlatformDef {
   x: number;
   y: number;
@@ -88,5 +95,6 @@ export interface MapDefinition {
   decorativeSigns: SignDef[];
   scenicProps?: ScenicPropDef[];
   finishLine: FinishLineDef;
+  powerUps?: PowerUpPickupDef[];
   xpReward?: number;
 }

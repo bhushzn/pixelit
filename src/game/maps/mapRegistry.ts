@@ -1,5 +1,8 @@
 import { MapDefinition } from './types';
 import { CLOUD_CLIMB_MAP } from './cloudClimb';
+import { SKY_BRIDGE_MAP } from './skyBridge';
+import { CANDY_CANYON_MAP } from './candyCanyon';
+import { JUNGLE_JUMP_MAP } from './jungleJump';
 
 export interface MapRegistryEntry {
   id: string;
@@ -26,29 +29,32 @@ export const MAP_REGISTRY: Record<string, MapRegistryEntry> = {
   sky_bridge: {
     id: 'sky_bridge',
     name: 'Sky Bridge',
-    subtitle: 'High-speed straightaways and windy gaps',
-    theme: 'rainbow',
-    isPlayable: false,
-    unlockedLevel: 3,
+    subtitle: 'High-Speed Straightaways & Windy Gaps',
+    theme: 'cloud_sky',
+    isPlayable: true,
+    unlockedLevel: 1,
     previewColor: '#fea619',
+    mapData: SKY_BRIDGE_MAP,
   },
   candy_canyon: {
     id: 'candy_canyon',
     name: 'Candy Canyon',
-    subtitle: 'Sugar-sprinkled slopes and gummy trampolines',
+    subtitle: 'Sugar-Sprinkled Slopes & Gummy Trampolines',
     theme: 'candy',
-    isPlayable: false,
-    unlockedLevel: 5,
+    isPlayable: true,
+    unlockedLevel: 1,
     previewColor: '#f43f5e',
+    mapData: CANDY_CANYON_MAP,
   },
   jungle_jump: {
     id: 'jungle_jump',
     name: 'Jungle Jump',
-    subtitle: 'Vibrant canopy branches and swinging vines',
+    subtitle: 'Vibrant Canopy Branches & Ancient Ruins',
     theme: 'jungle',
-    isPlayable: false,
-    unlockedLevel: 8,
+    isPlayable: true,
+    unlockedLevel: 1,
     previewColor: '#00b17b',
+    mapData: JUNGLE_JUMP_MAP,
   },
 };
 

@@ -42,6 +42,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
     right: false,
     jump: false,
     dash: false,
+    usePowerUp: false,
   });
 
   // Detect Touch / Mobile Screen

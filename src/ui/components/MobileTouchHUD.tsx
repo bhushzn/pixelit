@@ -5,14 +5,17 @@ export interface TouchInputState {
   right: boolean;
   jump: boolean;
   dash: boolean;
+  usePowerUp: boolean;
 }
 
 interface MobileTouchHUDProps {
+  heldPowerUpName?: string | null;
+  isPowerUpActive?: boolean;
   onInputChange: (input: TouchInputState) => void;
   inputState: TouchInputState;
 }
 
-export const MobileTouchHUD: React.FC<MobileTouchHUDProps> = ({ onInputChange, inputState }) => {
+export const MobileTouchHUD: React.FC<MobileTouchHUDProps> = ({ onInputChange, inputState, heldPowerUpName, isPowerUpActive }) => {
   const updateInput = (key: keyof TouchInputState, value: boolean) => {
     onInputChange({
       ...inputState,
@@ -57,6 +60,25 @@ export const MobileTouchHUD: React.FC<MobileTouchHUDProps> = ({ onInputChange, i
         </button>
       </div>
 
+              {/* Mobile Power-Up Activation Button (Shown only when powerup held) */}
+        {heldPowerUpName && (
+          <button
+            type="button"
+            aria-label="Use Power-Up"
+            onTouchStart={(e) => { e.preventDefault(); updateInput('usePowerUp', true); }}
+            onTouchEnd={(e) => { e.preventDefault(); updateInput('usePowerUp', false); }}
+            onMouseDown={() => updateInput('usePowerUp', true)}
+            onMouseUp={() => updateInput('usePowerUp', false)}
+            className={`w-14 h-14 md:w-16 md:h-16 landscape:w-12 landscape:h-12 rounded-3xl border-2 flex flex-col items-center justify-center shadow-lg transition-all ${
+              isPowerUpActive
+                ? 'bg-[#0ea5e9] border-white text-white animate-pulse'
+                : 'bg-[#fea619] border-white text-[#684000] shadow-[0_6px_0_0_#855300]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[24px] landscape:text-[20px]">bolt</span>
+            <span className="font-rubik text-[8px] font-black uppercase leading-none">USE</span>
+          </button>
+        )}
       {/* Bottom Right: Action Buttons (Dash & Jump) */}
       <div className="flex items-center gap-3 landscape:gap-2 pointer-events-auto">
         {/* Dash Button */}

@@ -111,6 +111,14 @@ export class PreloadScene extends Phaser.Scene {
     this.createParticleStarTexture();
     this.createParticleCloudTexture();
     this.createParticleDashTexture();
+
+    // 6. Prank Power-Up Visual Textures
+    this.safeAddCanvas('pickup_gift_box', PixelAssets.generatePowerUpBoxTexture());
+    this.safeAddCanvas('powerup_banana', PixelAssets.generateBananaTexture());
+    this.safeAddCanvas('powerup_tornado', PixelAssets.generateTornadoTexture());
+    this.safeAddCanvas('powerup_ice', PixelAssets.generateFreezePopTexture());
+    this.safeAddCanvas('powerup_boomerang', PixelAssets.generateBoomerangTexture());
+
   }
 
   private createAnimations(): void {

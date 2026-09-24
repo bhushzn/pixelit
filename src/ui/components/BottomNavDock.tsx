@@ -1,5 +1,6 @@
 import React from 'react';
 import { GameScreen } from '../../types/game';
+import { socialService } from '../../services/social/socialService';
 
 interface BottomNavDockProps {
   currentScreen: GameScreen;
@@ -11,10 +12,13 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentScreen, onN
     return null; // Do not show floating tab bar during active gameplay or title screen
   }
 
+  const party = socialService.getPartyState();
+  const partyBadge = party ? `${party.members.length}/4` : undefined;
+
   const navItems = [
     { id: 'lobby' as GameScreen, label: 'Lobby', icon: 'cottage' },
     { id: 'modes' as GameScreen, label: 'Play', icon: 'sports_esports' },
-    { id: 'friends' as const, label: 'Friends', icon: 'group', badge: '3' },
+    { id: 'friends' as GameScreen, label: 'Friends', icon: 'group', badge: partyBadge || '3' },
     { id: 'heroes' as const, label: 'Heroes', icon: 'checkroom' },
     { id: 'shop' as const, label: 'Shop', icon: 'redeem' },
   ];
@@ -29,10 +33,10 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentScreen, onN
               <button
                 key={item.label}
                 onClick={() => {
-                  if (item.id === 'lobby' || item.id === 'modes') {
+                  if (item.id === 'lobby' || item.id === 'modes' || item.id === 'friends') {
                     onNavigate(item.id);
                   } else {
-                    alert(`${item.label} is coming in the next update! Playable Cloud Climb race is ready in 'Play' or 'Lobby'.`);
+                    alert(`${item.label} is coming in the next update! Playable maps and Local Social/Party are ready in 'Play', 'Friends', or 'Lobby'.`);
                   }
                 }}
                 className={`relative flex flex-col items-center justify-center min-w-[54px] h-12 rounded-full transition-all duration-200 active:scale-90 ${
@@ -47,7 +51,7 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentScreen, onN
                 </span>
 
                 {item.badge && !isActive && (
-                  <span className="absolute top-1 right-2.5 w-4 h-4 rounded-full bg-[#00b17b] text-white flex items-center justify-center text-[9px] font-black shadow-sm">
+                  <span className="absolute top-1 right-2.5 px-1 min-w-4 h-4 rounded-full bg-[#00b17b] text-white flex items-center justify-center text-[9px] font-black shadow-sm">
                     {item.badge}
                   </span>
                 )}

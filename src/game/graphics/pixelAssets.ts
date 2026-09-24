@@ -919,4 +919,158 @@ export class PixelAssets {
 
     return canvas;
   }
+
+  /**
+   * Generates the Power-Up Mystery Gift Box Pickup Texture (32x32)
+   */
+  public static generatePowerUpBoxTexture(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    // Golden Box Body
+    ctx.fillStyle = '#fea619';
+    ctx.beginPath();
+    ctx.roundRect(4, 8, 24, 20, 4);
+    ctx.fill();
+
+    // Box Highlight Top
+    ctx.fillStyle = '#ffddb8';
+    ctx.fillRect(6, 10, 20, 3);
+
+    // Cyan Ribbon Vertical & Horizontal
+    ctx.fillStyle = '#0ea5e9';
+    ctx.fillRect(14, 8, 4, 20);
+    ctx.fillRect(4, 16, 24, 4);
+
+    // Ribbon Bow on Top
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.ellipse(13, 7, 3, 2, -Math.PI / 4, 0, Math.PI * 2);
+    ctx.ellipse(19, 7, 3, 2, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glow Glint
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(8, 11, 2, 2);
+
+    return canvas;
+  }
+
+  /**
+   * Generates the Banana Peel Texture (28x28)
+   */
+  public static generateBananaTexture(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 28;
+    canvas.height = 28;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    // Banana Yellow Peel
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.moveTo(14, 4);
+    ctx.quadraticCurveTo(6, 12, 4, 22);
+    ctx.quadraticCurveTo(14, 18, 24, 22);
+    ctx.quadraticCurveTo(22, 12, 14, 4);
+    ctx.fill();
+
+    // Banana Stem & Details
+    ctx.fillStyle = '#854d0e';
+    ctx.fillRect(13, 2, 3, 4);
+    ctx.fillRect(4, 21, 2, 2);
+    ctx.fillRect(22, 21, 2, 2);
+
+    return canvas;
+  }
+
+  /**
+   * Generates the Mini Tornado Texture (32x32)
+   */
+  public static generateTornadoTexture(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    // Swirling funnels
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+    ctx.beginPath();
+    ctx.ellipse(16, 6, 12, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(16, 13, 9, 3.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(16, 20, 6, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(16, 26, 3, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner White Spin Wisps
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(10, 5, 10, 2);
+    ctx.fillRect(12, 12, 7, 2);
+    ctx.fillRect(14, 19, 4, 2);
+
+    return canvas;
+  }
+
+  /**
+   * Generates the Freeze Pop Ice Texture (28x28)
+   */
+  public static generateFreezePopTexture(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 28;
+    canvas.height = 28;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    // Wooden Stick
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(12, 18, 4, 8);
+
+    // Cyan Ice Pop Body
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.roundRect(8, 4, 12, 16, [6, 6, 2, 2]);
+    ctx.fill();
+
+    // Frost Glints
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(10, 6, 3, 10);
+    ctx.fillRect(15, 6, 2, 4);
+
+    return canvas;
+  }
+
+  /**
+   * Generates the Boomerang Texture (28x28)
+   */
+  public static generateBoomerangTexture(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 28;
+    canvas.height = 28;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+
+    // Curved wood L shape
+    ctx.fillStyle = '#d97706';
+    ctx.beginPath();
+    ctx.moveTo(6, 6);
+    ctx.lineTo(14, 14);
+    ctx.lineTo(22, 6);
+    ctx.lineTo(24, 8);
+    ctx.lineTo(14, 18);
+    ctx.lineTo(4, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // Red racing stripes
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(8, 7, 3, 3);
+    ctx.fillRect(17, 7, 3, 3);
+
+    return canvas;
+  }
+
 }

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { GameScreen } from '../../types/game';
-import { authService } from '../../services/auth/authService';
+import { socialService } from '../../services/social/socialService';
 
 interface LobbyScreenProps {
   onStartRace: () => void;
@@ -8,128 +8,56 @@ interface LobbyScreenProps {
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigate }) => {
-  const user = authService.getCurrentUser();
-  const [streakClaimed, setStreakClaimed] = useState(false);
-  const [inviteFeedback, setInviteFeedback] = useState(false);
-
-  const handleStreakClick = () => {
-    if (!streakClaimed) {
-      setStreakClaimed(true);
-      alert('🌟 Daily Streak Day 4 Claimed! +200 Coins added to your pouch!');
-    }
-  };
+  const profile = socialService.getProfile();
+  const party = socialService.getPartyState();
 
   const handleInvite = () => {
-    setInviteFeedback(true);
-    navigator.clipboard?.writeText?.('Join my Pixel Rush party! Code: CLOUD4');
-    setTimeout(() => setInviteFeedback(false), 2000);
+    onNavigate('friends');
   };
 
   return (
-    <div className="sky-gradient-bg min-h-screen pt-20 pb-28 px-4 max-w-md mx-auto flex flex-col gap-4 select-none">
-      {/* Top Streak & Telemetry Bar */}
-      <section className="w-full flex items-center justify-between gap-2 mt-1">
-        {/* Streak Button */}
-        <button
-          onClick={handleStreakClick}
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white shadow-[0_8px_16px_-4px_rgba(14,165,233,0.15)] border border-[#e2e7ff] active:scale-95 transition-all text-left"
+    <div className="flex-1 w-full max-w-lg mx-auto px-4 py-3 flex flex-col items-center justify-between gap-3 pb-24">
+      {/* Active Party Indicator Pill */}
+      {party && (
+        <div
+          onClick={() => onNavigate('party')}
+          className="w-full bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] text-white p-2.5 rounded-2xl shadow-md border border-white/30 flex items-center justify-between cursor-pointer hover:brightness-105 transition-all"
         >
-          <div className="w-6 h-6 rounded-full bg-[#fea619] flex items-center justify-center shrink-0 shadow-inner">
-            <span className="material-symbols-outlined text-[#684000] text-[16px]">card_giftcard</span>
-          </div>
-          <div className="flex flex-col pr-1 min-w-0">
-            <span className="font-rubik text-[9px] text-[#855300] leading-none uppercase tracking-wider font-black">
-              Streak
-            </span>
-            <span className="font-rubik text-xs font-black text-[#131b2e] truncate">
-              {streakClaimed ? 'Claimed! ⭐' : 'Day 4 Ready!'}
-            </span>
-          </div>
-          {!streakClaimed && (
-            <span className="w-2 h-2 rounded-full bg-[#00b17b] animate-ping ml-0.5"></span>
-          )}
-        </button>
-
-        {/* Trophies & Spin */}
-        <div className="flex items-center gap-2">
-          {/* Trophies */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white shadow-[0_8px_16px_-4px_rgba(14,165,233,0.15)] border border-[#e2e7ff]">
-            <span className="material-symbols-outlined text-[#fea619] text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              workspace_premium
-            </span>
-            <span className="font-rubik text-xs font-black text-[#131b2e]">1,420</span>
-          </div>
-
-          {/* Daily Spin */}
-          <button
-            onClick={() => alert('🎰 Daily Lucky Spin: You won 50 Free Gems!')}
-            aria-label="Daily Spin"
-            className="relative w-9 h-9 rounded-full bg-white shadow-md border border-[#e2e7ff] flex items-center justify-center text-[#855300] active:rotate-45 active:scale-95 transition-all"
-          >
-            <div className="w-7 h-7 rounded-full bg-[#ffddb8] flex items-center justify-center">
-              <span className="material-symbols-outlined text-[16px] text-[#855300]">casino</span>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] animate-bounce">diversity_3</span>
+            <div>
+              <div className="font-rubik text-xs font-black">PARTY READY ({party.members.length}/4)</div>
+              <div className="font-rubik text-[9px] text-white/90">Map: {party.selectedMapId.replace('_', ' ').toUpperCase()}</div>
             </div>
-            <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-full bg-[#00b17b] text-white font-rubik text-[8px] font-black shadow-xs">
-              SPIN
-            </span>
-          </button>
+          </div>
+          <span className="font-rubik text-xs font-black bg-white/20 px-2 py-1 rounded-xl">Enter Lobby →</span>
         </div>
-      </section>
+      )}
 
-      {/* Online Friends Ticker */}
-      <section className="w-full bg-white/90 backdrop-blur-md rounded-full shadow-sm px-3 py-1.5 border border-[#e2e7ff] flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          <div className="flex items-center gap-1 shrink-0 bg-[#eaedff] px-2 py-0.5 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-[#00b17b] animate-pulse"></span>
-            <span className="font-rubik text-[10px] font-extrabold text-[#006591] uppercase">3 Online</span>
+      {/* Hero Character Stage */}
+      <section className="relative w-full aspect-4/3 rounded-3xl bg-gradient-to-b from-[#e0f2fe] via-[#faf8ff] to-[#f2f3ff] border border-[#c9e6ff] shadow-[0_20px_40px_-15px_rgba(14,165,233,0.15)] flex flex-col items-center justify-between p-4 overflow-hidden group">
+        {/* Soft Background Cloud Elements */}
+        <div className="absolute top-4 left-6 w-20 h-6 bg-white/70 rounded-full blur-[1px] pointer-events-none"></div>
+        <div className="absolute top-10 right-8 w-28 h-8 bg-white/60 rounded-full blur-[1px] pointer-events-none"></div>
+
+        {/* Player Nameplate / Title Header */}
+        <div className="z-10 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md shadow-xs border border-[#e2e7ff]">
+            <span className="material-symbols-outlined text-[16px] text-[#fea619]">military_tech</span>
+            <span className="font-rubik text-xs font-black text-[#131b2e] tracking-wide">
+              {profile.displayName}
+            </span>
+            <span className="px-1.5 py-0.2 rounded bg-[#0ea5e9]/10 text-[#006591] font-rubik text-[10px] font-black">
+              LVL {profile.level}
+            </span>
           </div>
-          <span className="font-rubik text-[10px] font-bold text-[#131b2e] bg-[#f2f3ff] px-2 py-0.5 rounded-full">Nova</span>
-          <span className="font-rubik text-[10px] font-bold text-[#131b2e] bg-[#f2f3ff] px-2 py-0.5 rounded-full">Blaze</span>
-          <span className="font-rubik text-[10px] font-bold text-[#131b2e] bg-[#f2f3ff] px-2 py-0.5 rounded-full">Pixel</span>
-        </div>
-        <button
-          onClick={handleInvite}
-          className="shrink-0 flex items-center gap-1 bg-[#0ea5e9] text-white px-2.5 py-0.5 rounded-full shadow-xs active:scale-95 transition-all"
-        >
-          <span className="material-symbols-outlined text-[14px]">person_add</span>
-          <span className="font-rubik text-[10px] font-black">{inviteFeedback ? 'Copied!' : 'Invite'}</span>
-        </button>
-      </section>
-
-      {/* Central Hero Stage & 2D Avatar Podium */}
-      <section className="relative w-full rounded-3xl bg-white/85 backdrop-blur-md shadow-[0_16px_32px_-8px_rgba(14,165,233,0.18)] p-4 flex flex-col items-center justify-between min-h-[330px] border-2 border-[#e2e7ff] overflow-hidden">
-        {/* Sky Clouds Backdrop */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#c9e6ff]/40 to-transparent pointer-events-none"></div>
-
-        {/* Top Status Inside Card */}
-        <div className="z-10 w-full flex items-start justify-between">
-          {/* Player Badge */}
-          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-full py-1 px-3 shadow-xs border border-[#e2e7ff]">
-            <div className="w-6 h-6 rounded-full bg-[#fea619] flex items-center justify-center text-[#684000] font-rubik text-[11px] font-black">
-              {user?.level ?? 12}
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1">
-                <span className="font-rubik text-xs font-black text-[#131b2e]">{user?.displayName ?? 'Pip'}</span>
-                <span className="font-rubik text-[9px] text-[#006591] bg-[#c9e6ff] px-1 rounded-full font-black">YOU</span>
-              </div>
-              <span className="font-rubik text-[9px] text-[#3e4850] flex items-center gap-0.5 font-bold">
-                ⭐ Speedster
-              </span>
-            </div>
-          </div>
-
-          {/* Party Status (Max 4 players) */}
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full py-0.5 px-2 shadow-xs border border-[#e2e7ff]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00b17b]"></span>
-              <span className="font-rubik text-[9px] font-black text-[#131b2e]">Party (1/4)</span>
-            </div>
-          </div>
+          <span className="font-rubik text-[10px] font-bold text-[#8e909a] mt-1 tracking-wider uppercase">
+            ⚡ Pixel Speedster
+          </span>
         </div>
 
-        {/* Character Visual Showcase */}
-        <div className="relative z-10 my-auto flex flex-col items-center justify-center cursor-pointer group" onClick={onStartRace}>
+        {/* Character Visual / Mascot Stand */}
+        <div className="relative flex flex-col items-center justify-center my-auto">
           {/* Stylized Animated Runner Avatar */}
           <div className="relative flex flex-col items-center">
             {/* Pip Avatar Representation */}
@@ -179,25 +107,25 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
         {/* Customization Actions Strip */}
         <div className="z-10 w-full flex items-center justify-around pt-2">
           <button
-            onClick={() => alert('Emote Wheel: 👋 Wave, 🎉 Cheer, 💃 Dance, ⚡ Flex')}
+            onClick={() => onNavigate('friends')}
             className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#0ea5e9]">mood</span>
-            <span className="font-rubik text-[10px] font-bold">Emotes</span>
+            <span className="material-symbols-outlined text-[16px] text-[#0ea5e9]">group</span>
+            <span className="font-rubik text-[10px] font-bold">Friends</span>
           </button>
           <button
-            onClick={() => alert('Hero Locker: Pip Speedster equipped! More runners coming soon.')}
+            onClick={() => onNavigate('friends')}
             className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#fea619]">checkroom</span>
-            <span className="font-rubik text-[10px] font-bold">Outfit</span>
+            <span className="material-symbols-outlined text-[16px] text-[#fea619]">face</span>
+            <span className="font-rubik text-[10px] font-bold">Profile</span>
           </button>
           <button
             onClick={handleInvite}
             className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
           >
             <span className="material-symbols-outlined text-[16px] text-[#00b17b]">share</span>
-            <span className="font-rubik text-[10px] font-bold">Share</span>
+            <span className="font-rubik text-[10px] font-bold">Invite</span>
           </button>
         </div>
       </section>
@@ -225,7 +153,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
         {/* Secondary Modes Grid (Party & Custom Room) */}
         <div className="grid grid-cols-2 gap-2.5 w-full">
           <button
-            onClick={() => onNavigate('modes')}
+            onClick={() => onNavigate('party')}
             className="p-3 rounded-2xl bg-[#0ea5e9] text-white shadow-[0_4px_0_0_#006591,0_10px_18px_-4px_rgba(14,165,233,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left"
           >
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -242,11 +170,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
             className="p-3 rounded-2xl bg-[#00b17b] text-white shadow-[0_4px_0_0_#006c49,0_10px_18px_-4px_rgba(0,177,123,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left"
           >
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">vpn_key</span>
+              <span className="material-symbols-outlined text-[20px]">sports_esports</span>
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="font-rubik text-xs font-black truncate">Custom Room</span>
-              <span className="font-rubik text-[10px] opacity-90 truncate">Max 6 Players</span>
+              <span className="font-rubik text-xs font-black truncate">Map Select</span>
+              <span className="font-rubik text-[10px] opacity-90 truncate">4 Playable Maps</span>
             </div>
           </button>
         </div>

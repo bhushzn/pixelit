@@ -1,4 +1,5 @@
 import { RaceStats } from '../../types/game';
+import { PowerUpDefinition } from '../powerups/types';
 
 export type RaceState = 'READY' | 'RACING' | 'RESPAWNING' | 'FINISHED' | 'RESULTS';
 
@@ -11,6 +12,8 @@ export interface RaceUpdateEvent {
   position: number;
   totalRacers: number;
   state: RaceState;
+  heldPowerUp?: PowerUpDefinition | null;
+  isPowerUpActive?: boolean;
 }
 
 export type RaceUpdateListener = (data: RaceUpdateEvent) => void;
@@ -43,6 +46,8 @@ export class RaceManager {
   private checkpointReached = false;
   private showCheckpointToast = false;
   private checkpointToastTimer = 0;
+  private heldPowerUp: PowerUpDefinition | null = null;
+  private isPowerUpActive = false;
 
   private updateListeners: RaceUpdateListener[] = [];
   private finishListeners: RaceFinishListener[] = [];
@@ -63,6 +68,12 @@ export class RaceManager {
       this.mapId = 'cloud_climb';
       this.mapTitle = 'Cloud Climb';
     }
+  }
+
+  
+  public setPowerUpState(held: PowerUpDefinition | null, isActive: boolean): void {
+    this.heldPowerUp = held;
+    this.isPowerUpActive = isActive;
   }
 
   public startRace(): void {
@@ -104,6 +115,8 @@ export class RaceManager {
       position: 1, // Single player Level 1
       totalRacers: 1,
       state: this.state,
+      heldPowerUp: this.heldPowerUp,
+      isPowerUpActive: this.isPowerUpActive,
     };
 
     for (const listener of this.updateListeners) {

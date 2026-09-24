@@ -4,6 +4,7 @@ import { CLOUD_CLIMB_MAP } from '../maps/cloudClimb';
 import { getMapById } from '../maps/mapRegistry';
 import { MapDefinition, CheckpointDef } from '../maps/types';
 import { RaceManager } from '../systems/RaceManager';
+import { PowerUpManager } from '../powerups/PowerUpManager';
 
 interface MovingPlatformObject {
   sprite: Phaser.GameObjects.TileSprite | Phaser.GameObjects.Image;
@@ -20,6 +21,8 @@ interface MovingPlatformObject {
 export class RaceScene extends Phaser.Scene {
   public player!: Player;
   public raceManager!: RaceManager;
+  public powerUpManager!: PowerUpManager;
+  private keyE!: Phaser.Input.Keyboard.Key;
 
   public mapData!: MapDefinition;
   private mapId: string = 'cloud_climb';
@@ -55,6 +58,7 @@ export class RaceScene extends Phaser.Scene {
     right: false,
     jump: false,
     dash: false,
+    usePowerUp: false,
   };
 
   constructor() {
@@ -113,6 +117,10 @@ export class RaceScene extends Phaser.Scene {
       this.mapData.finishTrigger.x
     );
     this.raceManager.startRace();
+
+    // 13. Power-Up System Setup
+    this.powerUpManager = new PowerUpManager(this);
+    this.powerUpManager.initPickups(this.mapData.powerUps);
   }
 
   private createParallaxBackdrop(): void {
@@ -525,6 +533,11 @@ export class RaceScene extends Phaser.Scene {
       this.player.takeHazardHit();
     });
 
+    // Power-up pickup overlaps
+    this.physics.add.overlap(this.player, this.powerUpManager.pickupsGroup, (_player, pickupObj) => {
+      this.powerUpManager.collectPickup(pickupObj as any);
+    });
+
     // Coin collection overlaps
     this.physics.add.overlap(this.player, this.coinsGroup, (_player, coinObj) => {
       const coin = coinObj as Phaser.Physics.Arcade.Sprite;
@@ -630,6 +643,7 @@ export class RaceScene extends Phaser.Scene {
       this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
       this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+      this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
   }
 
@@ -664,6 +678,14 @@ export class RaceScene extends Phaser.Scene {
 
     // 3. Update Moving Platforms
     this.updateMovingPlatforms();
+
+    // 3b. Check Power-Up Activation
+    if ((this.keyE && Phaser.Input.Keyboard.JustDown(this.keyE)) || this.externalInput.usePowerUp) {
+      this.powerUpManager.activatePowerUp(this.player);
+      this.externalInput.usePowerUp = false;
+    }
+    this.powerUpManager.update(delta, this.player, this.coinsGroup);
+    this.raceManager.setPowerUpState(this.powerUpManager.heldPowerUp, this.powerUpManager.isActive);
 
     // 4. Update Race Progress
     this.raceManager.update(this.player.x);

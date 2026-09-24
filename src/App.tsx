@@ -10,20 +10,26 @@ import { BottomNavDock } from './ui/components/BottomNavDock';
 import { TitleScreen } from './ui/screens/TitleScreen';
 import { LobbyScreen } from './ui/screens/LobbyScreen';
 import { PlayModesScreen } from './ui/screens/PlayModesScreen';
+import { FriendsScreen } from './ui/screens/FriendsScreen';
+import { PartyLobbyScreen } from './ui/screens/PartyLobbyScreen';
 import { GameView } from './ui/screens/GameView';
 import { authService } from './services/auth/authService';
+import { socialService } from './services/social/socialService';
 
 export default function App() {
   const [screen, setScreen] = useState<GameScreen>('title');
+  const [selectedMapId, setSelectedMapId] = useState<string>('cloud_climb');
   const [coins, setCoins] = useState<number>(() => authService.getCurrentUser()?.coins ?? 4850);
   const [gems] = useState<number>(() => authService.getCurrentUser()?.gems ?? 120);
 
-  const handleStartRace = () => {
+  const handleStartRace = (mapId?: string) => {
+    if (mapId) {
+      setSelectedMapId(mapId);
+    }
     setScreen('race');
   };
 
   const handleBackToLobby = () => {
-    // Refresh coins from user profile
     const current = authService.getCurrentUser();
     if (current) {
       setCoins(current.coins);
@@ -31,10 +37,12 @@ export default function App() {
     setScreen('lobby');
   };
 
+  const isNavScreen = screen === 'lobby' || screen === 'modes' || screen === 'friends' || screen === 'party';
+
   return (
     <div className="min-h-screen w-full flex flex-col font-sans-body bg-[#faf8ff] text-[#131b2e] antialiased">
-      {/* Top Header Bar (Shown in Lobby and Modes) */}
-      {(screen === 'lobby' || screen === 'modes') && (
+      {/* Top Header Bar */}
+      {isNavScreen && (
         <HeaderBar
           currentScreen={screen}
           onNavigate={(target) => setScreen(target)}
@@ -47,35 +55,49 @@ export default function App() {
       <main className="flex-1 flex flex-col w-full">
         {screen === 'title' && (
           <TitleScreen
-            onStartGame={handleStartRace}
+            onStartGame={() => handleStartRace(selectedMapId)}
             onEnterLobby={() => setScreen('lobby')}
           />
         )}
 
         {screen === 'lobby' && (
           <LobbyScreen
-            onStartRace={handleStartRace}
+            onStartRace={() => handleStartRace(selectedMapId)}
             onNavigate={(target) => setScreen(target)}
           />
         )}
 
         {screen === 'modes' && (
           <PlayModesScreen
-            onStartRace={handleStartRace}
+            onStartRace={(mapId) => handleStartRace(mapId)}
             onNavigate={(target) => setScreen(target)}
+          />
+        )}
+
+        {screen === 'friends' && (
+          <FriendsScreen
+            onNavigate={(target) => setScreen(target)}
+            onOpenParty={() => setScreen('party')}
+          />
+        )}
+
+        {screen === 'party' && (
+          <PartyLobbyScreen
+            onNavigate={(target) => setScreen(target)}
+            onStartRace={(mapId) => handleStartRace(mapId)}
           />
         )}
 
         {screen === 'race' && (
           <GameView
             onBackToLobby={handleBackToLobby}
-            mapId="cloud_climb"
+            mapId={selectedMapId}
           />
         )}
       </main>
 
       {/* Bottom Floating Navigation Dock */}
-      {(screen === 'lobby' || screen === 'modes') && (
+      {isNavScreen && (
         <BottomNavDock
           currentScreen={screen}
           onNavigate={(target) => setScreen(target)}
