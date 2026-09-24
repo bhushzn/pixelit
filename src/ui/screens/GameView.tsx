@@ -4,6 +4,7 @@ import { createGameConfig } from '../../game/config/gameConfig';
 import { RaceScene } from '../../game/scenes/RaceScene';
 import { RaceUpdateEvent } from '../../game/systems/RaceManager';
 import { RaceStats } from '../../types/game';
+import { getMapById } from '../../game/maps/mapRegistry';
 import { GameHUD } from '../components/GameHUD';
 import { MobileTouchHUD, TouchInputState } from '../components/MobileTouchHUD';
 import { ResultsModal } from '../components/ResultsModal';
@@ -14,6 +15,7 @@ interface GameViewProps {
 }
 
 export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'cloud_climb' }) => {
+  const activeMap = getMapById(mapId);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<RaceScene | null>(null);
@@ -150,7 +152,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
           setFinishedStats(stats);
         });
       });
-      scene.scene.restart();
+      scene.scene.restart({ mapId });
     }
   };
 
@@ -165,7 +167,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
       {/* Stitch Race HUD */}
       <GameHUD
         hudData={hudData}
-        mapTitle="Cloud Climb"
+        mapTitle={activeMap.name}
         onExit={onBackToLobby}
         onRestart={handleRestart}
       />
@@ -182,6 +184,8 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
       {finishedStats && (
         <ResultsModal
           stats={finishedStats}
+          mapTitle={activeMap.name}
+          mapSubtitle={activeMap.subtitle}
           onPlayAgain={handleRestart}
           onBackToLobby={onBackToLobby}
         />

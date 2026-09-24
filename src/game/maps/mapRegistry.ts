@@ -57,5 +57,6 @@ export function getMapById(id: string): MapDefinition {
   if (entry && entry.mapData) {
     return entry.mapData;
   }
+  console.warn(`[MapRegistry] Map with id "${id}" not found or has no mapData. Falling back to Cloud Climb.`);
   return CLOUD_CLIMB_MAP;
 }

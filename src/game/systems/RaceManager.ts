@@ -16,6 +16,15 @@ export interface RaceUpdateEvent {
 export type RaceUpdateListener = (data: RaceUpdateEvent) => void;
 export type RaceFinishListener = (stats: RaceStats) => void;
 
+export interface RaceManagerConfig {
+  startX: number;
+  finishX: number;
+  totalCheckpoints?: number;
+  xpEarned?: number;
+  mapId?: string;
+  mapTitle?: string;
+}
+
 export class RaceManager {
   private startTime = 0;
   private elapsedMs = 0;
@@ -23,8 +32,14 @@ export class RaceManager {
 
   private startX = 0;
   private finishX = 1000;
+  public totalCheckpoints = 1;
+  public xpEarned = 100;
+  public mapId = 'cloud_climb';
+  public mapTitle = 'Cloud Climb';
 
   private coins = 0;
+  private checkpointsPassed = 0;
+  private passedCheckpointIds = new Set<number>();
   private checkpointReached = false;
   private showCheckpointToast = false;
   private checkpointToastTimer = 0;
@@ -32,9 +47,22 @@ export class RaceManager {
   private updateListeners: RaceUpdateListener[] = [];
   private finishListeners: RaceFinishListener[] = [];
 
-  constructor(startX: number, finishX: number) {
-    this.startX = startX;
-    this.finishX = finishX;
+  constructor(configOrStartX: RaceManagerConfig | number, finishX?: number) {
+    if (typeof configOrStartX === 'object') {
+      this.startX = configOrStartX.startX;
+      this.finishX = configOrStartX.finishX;
+      this.totalCheckpoints = configOrStartX.totalCheckpoints ?? 1;
+      this.xpEarned = configOrStartX.xpEarned ?? 100;
+      this.mapId = configOrStartX.mapId ?? 'cloud_climb';
+      this.mapTitle = configOrStartX.mapTitle ?? 'Cloud Climb';
+    } else {
+      this.startX = configOrStartX;
+      this.finishX = finishX ?? 1000;
+      this.totalCheckpoints = 1;
+      this.xpEarned = 100;
+      this.mapId = 'cloud_climb';
+      this.mapTitle = 'Cloud Climb';
+    }
   }
 
   public startRace(): void {
@@ -42,6 +70,8 @@ export class RaceManager {
     this.elapsedMs = 0;
     this.state = 'RACING';
     this.coins = 0;
+    this.checkpointsPassed = 0;
+    this.passedCheckpointIds.clear();
     this.checkpointReached = false;
     this.showCheckpointToast = false;
     this.checkpointToastTimer = 0;
@@ -87,10 +117,12 @@ export class RaceManager {
     return this.coins;
   }
 
-  public passCheckpoint(): boolean {
-    if (this.checkpointReached) {
+  public passCheckpoint(checkpointId = 1): boolean {
+    if (this.passedCheckpointIds.has(checkpointId)) {
       return false;
     }
+    this.passedCheckpointIds.add(checkpointId);
+    this.checkpointsPassed += 1;
     this.checkpointReached = true;
     this.showCheckpointToast = true;
     this.checkpointToastTimer = performance.now() + 2500;
@@ -111,9 +143,9 @@ export class RaceManager {
       totalRacers: 1,
       finishTimeMs: this.elapsedMs,
       coinsCollected: this.coins,
-      checkpointsPassed: this.checkpointReached ? 1 : 0,
-      totalCheckpoints: 1,
-      xpEarned: 100,
+      checkpointsPassed: this.checkpointsPassed,
+      totalCheckpoints: this.totalCheckpoints,
+      xpEarned: this.xpEarned,
     };
 
     for (const listener of this.finishListeners) {
@@ -129,9 +161,9 @@ export class RaceManager {
       totalRacers: 1,
       finishTimeMs: this.elapsedMs,
       coinsCollected: this.coins,
-      checkpointsPassed: this.checkpointReached ? 1 : 0,
-      totalCheckpoints: 1,
-      xpEarned: 100,
+      checkpointsPassed: this.checkpointsPassed,
+      totalCheckpoints: this.totalCheckpoints,
+      xpEarned: this.xpEarned,
     };
   }
 

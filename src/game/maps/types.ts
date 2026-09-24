@@ -88,4 +88,5 @@ export interface MapDefinition {
   decorativeSigns: SignDef[];
   scenicProps?: ScenicPropDef[];
   finishLine: FinishLineDef;
+  xpReward?: number;
 }

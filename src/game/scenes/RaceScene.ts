@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { CLOUD_CLIMB_MAP } from '../maps/cloudClimb';
-import { MapDefinition } from '../maps/types';
+import { getMapById } from '../maps/mapRegistry';
+import { MapDefinition, CheckpointDef } from '../maps/types';
 import { RaceManager } from '../systems/RaceManager';
 
 interface MovingPlatformObject {
@@ -20,7 +21,8 @@ export class RaceScene extends Phaser.Scene {
   public player!: Player;
   public raceManager!: RaceManager;
 
-  private mapData: MapDefinition = CLOUD_CLIMB_MAP;
+  public mapData!: MapDefinition;
+  private mapId: string = 'cloud_climb';
 
   // Collision groups
   private solidPlatforms!: Phaser.Physics.Arcade.StaticGroup;

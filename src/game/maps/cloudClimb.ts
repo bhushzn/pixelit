@@ -4,6 +4,7 @@ export const CLOUD_CLIMB_MAP: MapDefinition = {
   id: 'cloud_climb',
   name: 'Cloud Climb',
   subtitle: 'Level 1: Sky Sprint',
+  xpReward: 100,
   theme: 'cloud_sky',
   worldWidth: 6800,
   worldHeight: 850,

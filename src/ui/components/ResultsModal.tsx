@@ -3,11 +3,13 @@ import { RaceStats } from '../../types/game';
 
 interface ResultsModalProps {
   stats: RaceStats;
+  mapTitle?: string;
+  mapSubtitle?: string;
   onPlayAgain: () => void;
   onBackToLobby: () => void;
 }
 
-export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, onPlayAgain, onBackToLobby }) => {
+export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, mapSubtitle, onPlayAgain, onBackToLobby }) => {
   const formatTime = (ms: number): string => {
     const totalSecs = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSecs / 60);
@@ -37,7 +39,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, onPlayAgain, 
             {stats.finishPosition === 1 ? 'VICTORY DASH!' : `${stats.finishPosition}th Place`}
           </h2>
           <p className="font-sans-body text-xs text-[#3e4850] font-semibold">
-            Cloud Climb • Single-Player Vertical Slice
+            {mapTitle ? `${mapTitle}${mapSubtitle ? ` • ${mapSubtitle}` : ''}` : 'Cloud Climb • Single-Player Vertical Slice'}
           </p>
         </div>
 

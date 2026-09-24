@@ -2,14 +2,21 @@ import Phaser from 'phaser';
 import { PixelAssets } from '../graphics/pixelAssets';
 
 export class PreloadScene extends Phaser.Scene {
+  private mapId = 'cloud_climb';
+
   constructor() {
     super({ key: 'PreloadScene' });
+  }
+
+  init(data?: { mapId?: string }): void {
+    const requestedId = data?.mapId || this.registry?.get('mapId') || this.mapId || 'cloud_climb';
+    this.mapId = requestedId;
   }
 
   create(): void {
     this.generateTextures();
     this.createAnimations();
-    this.scene.start('RaceScene');
+    this.scene.start('RaceScene', { mapId: this.mapId });
   }
 
   private safeAddCanvas(key: string, canvas: HTMLCanvasElement): void {
