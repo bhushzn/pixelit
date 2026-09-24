@@ -1,0 +1,6 @@
+{
+  "name": "Pixel Rush",
+  "description": "Colorful 2D online platform-racing game with tactile toy-box pop style.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: 'Rubik', sans-serif;
+  }
+}
+
+.font-rubik {
+  font-family: 'Rubik', sans-serif;
+}
+
+.font-sans-body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.sky-gradient-bg {
+  background: linear-gradient(180deg, #c9e6ff 0%, #e2e7ff 50%, #faf8ff 100%);
+}
+
+/* Tactile 3D Bevel Buttons */
+.btn-tactile-primary {
+  background: #fea619;
+  color: #684000;
+  box-shadow: 0 4px 0 0 #855300, 0 10px 16px -4px rgba(254, 166, 25, 0.4);
+  transition: all 0.1s ease-in-out;
+}
+.btn-tactile-primary:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #855300, 0 4px 8px -2px rgba(254, 166, 25, 0.4);
+}
+
+.btn-tactile-sky {
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: 0 4px 0 0 #006591, 0 10px 16px -4px rgba(14, 165, 233, 0.35);
+  transition: all 0.1s ease-in-out;
+}
+.btn-tactile-sky:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #006591, 0 4px 8px -2px rgba(14, 165, 233, 0.35);
+}
+
+.btn-tactile-green {
+  background: #00b17b;
+  color: #ffffff;
+  box-shadow: 0 4px 0 0 #006c49, 0 10px 16px -4px rgba(0, 177, 123, 0.35);
+  transition: all 0.1s ease-in-out;
+}
+.btn-tactile-green:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #006c49, 0 4px 8px -2px rgba(0, 177, 123, 0.35);
+}
+
+/* Hide scrollbars */
+::-webkit-scrollbar {
+  display: none;
+}
