@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GameScreen } from '../../types/game';
 import { socialService } from '../../services/social/socialService';
 import { PartyState, Friend } from '../../services/social/socialTypes';
@@ -17,41 +17,45 @@ const GAME_MODES = [
 ];
 
 export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, onStartRace }) => {
-  const [party, setParty] = useState<PartyState | null>(() => {
-    let p = socialService.getPartyState();
-    if (!p) {
-      p = socialService.createParty('quick_race', 'cloud_climb');
-    }
-    return p;
-  });
-
+  const [party, setParty] = useState<PartyState | null>(() => socialService.getPartyState());
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const friends = socialService.getFriends().filter((f) => f.status === 'online');
 
+  const isOnline = socialService.isOnlineMode();
   const profile = socialService.getProfile();
   const isLeader = party?.leaderId === profile.id;
   const currentMember = party?.members.find((m) => m.id === profile.id);
 
-  const refreshParty = () => {
-    setParty(socialService.getPartyState());
-  };
+  const refreshParty = useCallback(async () => {
+    let p = socialService.getPartyState();
+    if (!p) {
+      p = await socialService.createParty('quick_race', 'cloud_climb');
+    }
+    setParty(p);
+    const fList = await socialService.getFriends();
+    setFriends(fList.filter((f) => f.status === 'online'));
+  }, []);
+
+  useEffect(() => {
+    refreshParty();
+  }, [refreshParty]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleSelectMap = (mapId: string) => {
+  const handleSelectMap = async (mapId: string) => {
     if (!isLeader) {
       showToast('Only the party leader can select maps.');
       return;
     }
-    socialService.setPartyMap(mapId);
-    refreshParty();
+    await socialService.setPartyMap(mapId);
+    setParty(socialService.getPartyState());
   };
 
-  const handleSelectMode = (modeId: string) => {
+  const handleSelectMode = async (modeId: string) => {
     if (!isLeader) {
       showToast('Only the party leader can select modes.');
       return;
@@ -60,35 +64,35 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
       showToast(`${modeId.replace('_', ' ').toUpperCase()} is coming in the future multiplayer update!`);
       return;
     }
-    socialService.setPartyMode(modeId);
-    refreshParty();
+    await socialService.setPartyMode(modeId);
+    setParty(socialService.getPartyState());
   };
 
-  const handleToggleReady = () => {
+  const handleToggleReady = async () => {
     if (!currentMember) return;
-    socialService.setReady(!currentMember.isReady);
-    refreshParty();
+    await socialService.setReady(!currentMember.isReady);
+    setParty(socialService.getPartyState());
   };
 
-  const handleKickMember = (memberId: string, name: string) => {
-    socialService.removePartyMember(memberId);
+  const handleKickMember = async (memberId: string, name: string) => {
+    await socialService.removePartyMember(memberId);
     showToast(`${name} removed from party.`);
-    refreshParty();
+    setParty(socialService.getPartyState());
   };
 
-  const handleInviteFriend = (friend: Friend) => {
-    const res = socialService.inviteFriendToParty(friend);
+  const handleInviteFriend = async (friend: Friend) => {
+    const res = await socialService.inviteFriendToParty(friend);
     showToast(res.message);
     setShowInviteModal(false);
-    refreshParty();
+    setParty(socialService.getPartyState());
   };
 
-  const handleLeaveParty = () => {
-    socialService.leaveParty();
+  const handleLeaveParty = async () => {
+    await socialService.leaveParty();
     onNavigate('lobby');
   };
 
-  const handleLaunchGame = () => {
+  const handleLaunchGame = async () => {
     if (!party) return;
     const check = socialService.canStartRace();
     if (!check.allowed) {
@@ -96,7 +100,7 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
       return;
     }
 
-    socialService.startRace();
+    await socialService.startRace();
     onStartRace(party.selectedMapId);
   };
 
@@ -105,8 +109,8 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
         <h2 className="font-rubik text-lg font-black text-[#131b2e]">No Party Active</h2>
         <button
-          onClick={() => {
-            const newP = socialService.createParty();
+          onClick={async () => {
+            const newP = await socialService.createParty();
             setParty(newP);
           }}
           className="mt-4 px-6 py-2.5 rounded-full bg-[#0ea5e9] text-white font-rubik text-sm font-black shadow-md"
@@ -147,9 +151,18 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
               <span className="px-2 py-0.5 rounded-full bg-[#fea619]/20 text-[#855300] font-rubik text-[10px] font-black">
                 {party.roomCode || 'ROOM-4P'}
               </span>
+              <span
+                className={`px-2 py-0.5 rounded-full font-rubik text-[8px] font-black uppercase ${
+                  isOnline
+                    ? 'bg-[#00b17b]/15 text-[#006c49]'
+                    : 'bg-[#fea619]/20 text-[#855300]'
+                }`}
+              >
+                {isOnline ? 'Firebase' : 'Local'}
+              </span>
             </div>
             <p className="font-rubik text-[10px] font-bold text-[#006591]">
-              4-Player Local Squad • {party.members.length}/4 Runners Ready
+              4-Player Squad • {party.members.length}/4 Runners Ready
             </p>
           </div>
         </div>
@@ -248,7 +261,7 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
               <p className="font-rubik text-xs text-[#8e909a] py-3 text-center">No online friends available.</p>
             ) : (
               <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-                {friends.map((f) => (
+                {friends.map((f: Friend) => (
                   <div key={f.id} className="flex items-center justify-between p-2 rounded-xl bg-[#faf8ff] border border-[#e2e7ff]">
                     <div>
                       <div className="font-rubik text-xs font-bold text-[#131b2e]">{f.displayName}</div>

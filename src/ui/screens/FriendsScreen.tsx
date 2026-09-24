@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GameScreen } from '../../types/game';
 import { socialService } from '../../services/social/socialService';
 import { Friend, FriendRequest, PlayerProfile } from '../../services/social/socialTypes';
@@ -19,8 +19,8 @@ const AVATAR_OPTIONS = [
 
 export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpenParty }) => {
   const [profile, setProfile] = useState<PlayerProfile>(() => socialService.getProfile());
-  const [friends, setFriends] = useState<Friend[]>(() => socialService.getFriends());
-  const [requests, setRequests] = useState<FriendRequest[]>(() => socialService.getFriendRequests());
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -28,56 +28,66 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
   const [selectedAvatar, setSelectedAvatar] = useState(profile.avatarId);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const refreshState = () => {
+  const isOnline = socialService.isOnlineMode();
+
+  const refreshState = useCallback(async () => {
     setProfile(socialService.getProfile());
-    setFriends(socialService.getFriends());
-    setRequests(socialService.getFriendRequests());
-  };
+    const [fList, rList] = await Promise.all([
+      socialService.getFriends(),
+      socialService.getFriendRequests(),
+    ]);
+    setFriends(fList);
+    setRequests(rList);
+  }, []);
+
+  useEffect(() => {
+    refreshState();
+  }, [refreshState]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
       setSearchResults([]);
       return;
     }
-    const results = socialService.searchUsers(searchQuery);
+    const results = await socialService.searchUsers(searchQuery);
     setSearchResults(results);
   };
 
-  const handleSendRequest = (target: Friend) => {
-    const res = socialService.sendFriendRequest(target);
+  const handleSendRequest = async (target: Friend) => {
+    const res = await socialService.sendFriendRequest(target);
     showToast(res.message);
-    refreshState();
+    await refreshState();
   };
 
-  const handleAcceptRequest = (requestId: string) => {
-    socialService.acceptFriendRequest(requestId);
+  const handleAcceptRequest = async (requestId: string) => {
+    await socialService.acceptFriendRequest(requestId);
     showToast('Friend request accepted!');
-    refreshState();
+    await refreshState();
   };
 
-  const handleDeclineRequest = (requestId: string) => {
-    socialService.declineFriendRequest(requestId);
+  const handleDeclineRequest = async (requestId: string) => {
+    await socialService.declineFriendRequest(requestId);
     showToast('Friend request declined.');
-    refreshState();
+    await refreshState();
   };
 
-  const handleRemoveFriend = (friendId: string, name: string) => {
+  const handleRemoveFriend = async (friendId: string, name: string) => {
     if (confirm(`Remove ${name} from your friends list?`)) {
-      socialService.removeFriend(friendId);
+      await socialService.removeFriend(friendId);
       showToast(`${name} removed from friends.`);
-      refreshState();
+      await refreshState();
     }
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!newDisplayName.trim()) return;
-    const updated = socialService.updateProfile({
+    const updated = await socialService.updateProfile({
       displayName: newDisplayName.trim(),
       avatarId: selectedAvatar,
     });
@@ -86,12 +96,12 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
     showToast('Profile updated successfully!');
   };
 
-  const handleInviteToParty = (friend: Friend) => {
+  const handleInviteToParty = async (friend: Friend) => {
     let party = socialService.getPartyState();
     if (!party) {
-      party = socialService.createParty('quick_race', 'cloud_climb');
+      party = await socialService.createParty('quick_race', 'cloud_climb');
     }
-    const res = socialService.inviteFriendToParty(friend);
+    const res = await socialService.inviteFriendToParty(friend);
     showToast(res.message);
     onOpenParty();
   };
@@ -120,19 +130,30 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
           <div>
-            <h1 className="font-rubik text-xl font-black text-[#131b2e] tracking-tight">
-              Friends & Squad
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-rubik text-xl font-black text-[#131b2e] tracking-tight">
+                Friends & Squad
+              </h1>
+              <span
+                className={`px-2 py-0.5 rounded-full font-rubik text-[9px] font-black uppercase ${
+                  isOnline
+                    ? 'bg-[#00b17b]/15 text-[#006c49]'
+                    : 'bg-[#fea619]/20 text-[#855300]'
+                }`}
+              >
+                {isOnline ? 'Firebase Online' : 'Local Demo'}
+              </span>
+            </div>
             <p className="font-rubik text-[10px] font-bold text-[#006591]">
-              Local Social & Party Foundation (Demo Simulation)
+              {isOnline ? 'Real Firebase Player Network' : 'Single Device Simulation'}
             </p>
           </div>
         </div>
 
         <button
-          onClick={() => {
+          onClick={async () => {
             let party = socialService.getPartyState();
-            if (!party) party = socialService.createParty();
+            if (!party) await socialService.createParty();
             onOpenParty();
           }}
           className="px-3 py-1.5 rounded-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-rubik text-xs font-black shadow-md flex items-center gap-1 active:scale-95 transition-all"
@@ -176,7 +197,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
       {editingProfile && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-[#e2e7ff] flex flex-col gap-4">
-            <h3 className="font-rubik text-base font-black text-[#131b2e]">Edit Local Profile</h3>
+            <h3 className="font-rubik text-base font-black text-[#131b2e]">Edit Profile</h3>
             
             <div>
               <label className="font-rubik text-xs font-bold text-[#3e4850] block mb-1">Display Name</label>
@@ -233,12 +254,12 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e2e7ff] flex flex-col gap-3">
         <h2 className="font-rubik text-xs font-black text-[#131b2e] uppercase tracking-wider flex items-center gap-1.5">
           <span className="material-symbols-outlined text-[16px] text-[#0ea5e9]">person_search</span>
-          Find Demo Players
+          {isOnline ? 'Search Online Players' : 'Find Demo Players'}
         </h2>
         <form onSubmit={handleSearch} className="flex gap-2">
           <input
             type="text"
-            placeholder="Search demo runners (e.g. PixelFox, Nova)..."
+            placeholder={isOnline ? 'Search by username...' : 'Search demo runners (e.g. PixelFox, Nova)...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 px-3 py-2 rounded-xl bg-[#f2f3ff] border border-[#e2e7ff] font-rubik text-xs focus:outline-none focus:border-[#0ea5e9]"
@@ -340,7 +361,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onNavigate, onOpen
             <span className="w-2.5 h-2.5 rounded-full bg-[#00b17b] animate-pulse"></span>
             Online Friends ({onlineFriends.length})
           </div>
-          <span className="text-[10px] font-bold text-[#8e909a]">Demo Roster</span>
+          <span className="text-[10px] font-bold text-[#8e909a]">{isOnline ? 'Firebase Online' : 'Demo Roster'}</span>
         </h2>
 
         {onlineFriends.length === 0 ? (

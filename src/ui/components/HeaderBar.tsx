@@ -5,79 +5,88 @@ import { authService } from '../../services/auth/authService';
 interface HeaderBarProps {
   currentScreen: GameScreen;
   onNavigate: (screen: GameScreen) => void;
-  coins?: number;
-  gems?: number;
+  coins: number;
+  gems: number;
 }
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({
-  currentScreen,
-  onNavigate,
-  coins = 4850,
-  gems = 120,
-}) => {
+export const HeaderBar: React.FC<HeaderBarProps> = ({ currentScreen, onNavigate, coins, gems }) => {
   const user = authService.getCurrentUser();
+  const isOnline = authService.isOnlineMode();
+
+  const handleSignOut = async () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      await authService.signOut();
+      onNavigate('title');
+    }
+  };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-[#faf8ff]/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
-      <div className="h-16 md:h-20 max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between gap-3">
-        {/* Logo and Brand */}
-        <button
-          onClick={() => onNavigate('lobby')}
-          className="flex items-center gap-2.5 min-w-0 text-left active:scale-95 transition-transform"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-[#0ea5e9] flex items-center justify-center text-white shadow-[0_4px_0_0_#006591] shrink-0">
-            <span className="material-symbols-outlined text-[24px]">sports_esports</span>
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-rubik text-base md:text-lg font-black text-[#006591] tracking-tight leading-none truncate">
-              Pixel Rush
-            </span>
-            <span className="font-rubik text-[10px] md:text-xs font-black text-[#3e4850] uppercase tracking-wider truncate mt-0.5">
-              {currentScreen === 'modes' ? 'Play Modes' : currentScreen === 'race' ? 'Racing World' : 'Lobby'}
-            </span>
-          </div>
-        </button>
-
-        {/* Currency & Actions */}
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
-          {/* Coins Capsule */}
-          <div className="h-9 px-3 rounded-full bg-white shadow-[0_12px_24px_-4px_rgba(14,165,233,0.15)] flex items-center gap-1.5 border border-[#e2e7ff]">
-            <div className="w-6 h-6 rounded-full bg-[#fea619] flex items-center justify-center shrink-0 shadow-inner">
-              <span className="material-symbols-outlined text-[16px] text-[#684000]">monetization_on</span>
+    <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-[#e2e7ff] shadow-xs">
+      <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
+        {/* Left: Brand & Mode Badge */}
+        <div className="flex items-center gap-2">
+          <div
+            onClick={() => onNavigate('lobby')}
+            className="flex items-center gap-1.5 cursor-pointer select-none group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0ea5e9] to-[#38bdf8] flex items-center justify-center text-white font-black text-sm shadow-sm group-hover:scale-105 transition-transform">
+              PR
             </div>
-            <span className="font-rubik text-xs md:text-sm font-extrabold text-[#131b2e]">
+            <span className="font-rubik font-black text-base tracking-tight text-[#131b2e]">
+              PIXEL RUSH
+            </span>
+          </div>
+
+          {/* Mode Pill */}
+          <span
+            className={`px-2 py-0.5 rounded-full font-rubik text-[9px] font-black uppercase ${
+              isOnline
+                ? 'bg-[#00b17b]/15 text-[#006c49]'
+                : 'bg-[#fea619]/20 text-[#855300]'
+            }`}
+            title={isOnline ? 'Connected to Firebase Online Backend' : 'Running in Local Development Mode'}
+          >
+            {isOnline ? 'Online' : 'Local Dev'}
+          </span>
+        </div>
+
+        {/* Right: Currencies & User Account */}
+        <div className="flex items-center gap-2.5">
+          {/* Coins Badge */}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#fef3c7] border border-[#fde68a] shadow-2xs">
+            <span className="material-symbols-outlined text-[15px] text-[#d97706]">monetization_on</span>
+            <span className="font-rubik text-xs font-black text-[#92400e]">
               {coins.toLocaleString()}
             </span>
           </div>
 
-          {/* Diamonds Capsule */}
-          <div className="h-9 px-3 rounded-full bg-white shadow-[0_12px_24px_-4px_rgba(14,165,233,0.15)] flex items-center gap-1.5 border border-[#e2e7ff]">
-            <div className="w-6 h-6 rounded-full bg-[#0ea5e9] flex items-center justify-center shrink-0 shadow-inner">
-              <span className="material-symbols-outlined text-[16px] text-white">diamond</span>
-            </div>
-            <span className="font-rubik text-xs md:text-sm font-extrabold text-[#131b2e]">
-              {gems}
+          {/* Gems Badge */}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#e0f2fe] border border-[#bae6fd] shadow-2xs">
+            <span className="material-symbols-outlined text-[15px] text-[#0284c7]">diamond</span>
+            <span className="font-rubik text-xs font-black text-[#0369a1]">
+              {gems.toLocaleString()}
             </span>
           </div>
 
-          {/* Settings Button */}
-          <button
-            aria-label="Settings"
-            onClick={() => alert('Pixel Rush Settings: SFX: ON, Music: ON, Graphics: High')}
-            className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-white shadow-[0_12px_24px_-4px_rgba(14,165,233,0.15)] flex items-center justify-center text-[#3e4850] hover:text-[#006591] active:scale-95 transition-all border border-[#e2e7ff]"
-          >
-            <span className="material-symbols-outlined text-[20px] md:text-[22px]">settings</span>
-          </button>
-
-          {/* User Profile Avatar with Level Pill */}
-          <div className="relative flex items-center">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-[#006591] flex items-center justify-center shadow-md">
-              <span className="material-symbols-outlined text-white text-[20px]">person</span>
+          {/* User Profile Avatar / Sign Out */}
+          {user && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onNavigate('friends')}
+                className="w-8 h-8 rounded-full bg-[#0ea5e9] text-white flex items-center justify-center font-rubik font-black text-xs shadow-xs hover:scale-105 transition-transform"
+                title={`Signed in as ${user.displayName} (${user.isGuest ? 'Guest' : 'Account'})`}
+              >
+                {user.displayName.charAt(0).toUpperCase()}
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="w-7 h-7 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                title="Sign Out"
+              >
+                <span className="material-symbols-outlined text-[16px]">logout</span>
+              </button>
             </div>
-            <span className="absolute -bottom-1 -right-1 bg-[#fea619] text-[#684000] font-rubik text-[9px] px-1.5 py-0.5 rounded-full font-black leading-none shadow-sm">
-              LV.{user?.level ?? 12}
-            </span>
-          </div>
+          )}
         </div>
       </div>
     </header>
