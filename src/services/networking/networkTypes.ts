@@ -1,6 +1,6 @@
 /**
- * Pixel Rush Real-Time Multiplayer Networking Architecture (Phase 9)
- * 4-Player Authoritative Real-Time Race Foundation
+ * Pixel Rush Real-Time Multiplayer Networking Architecture (Phase 9 & 10)
+ * 4-Player Authoritative Real-Time Race & Ranked Matchmaking Protocol
  */
 
 export type RoomMode = 'quick_race' | 'time_trial' | 'custom_room' | 'party_room';
@@ -30,6 +30,17 @@ export type AllowedPowerUpType = typeof ALLOWED_POWERUP_TYPES[number];
 export type RoomState = 'LOBBY' | 'COUNTDOWN' | 'RACING' | 'FINISHED' | 'CLOSED';
 
 export type PlayerConnectionState = 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTED';
+
+export type MatchmakingState =
+  | 'IDLE'
+  | 'QUEUED'
+  | 'MATCH_FOUND'
+  | 'ROOM_CREATING'
+  | 'ROOM_ASSIGNED'
+  | 'CANCELLED'
+  | 'FAILED';
+
+export type MatchRegion = 'IN' | 'ASIA' | 'EU' | 'NA' | 'OTHER';
 
 export interface PlayerNetworkState {
   playerId: string;
@@ -75,6 +86,18 @@ export interface RoomMetadata {
   createdAt: number;
   countdownSeconds?: number;
   raceStartTime?: number;
+  region?: MatchRegion;
+}
+
+export interface PublicRoomSummary {
+  roomId: string;
+  mapId: string;
+  mode: RoomMode;
+  state: RoomState;
+  playerCount: number;
+  maxPlayers: number;
+  region: MatchRegion;
+  pingMs?: number;
 }
 
 export interface RaceResultEntry {
@@ -85,6 +108,12 @@ export interface RaceResultEntry {
   finishTimeMs: number;
   checkpointProgress: number;
   finished: boolean;
+}
+
+export interface QueuePartyMemberInfo {
+  playerId: string;
+  displayName: string;
+  avatarId: string;
 }
 
 // Discriminant Client-to-Server Message Protocol
@@ -99,6 +128,9 @@ export type ClientMessage =
   | { type: 'CHECKPOINT'; roomId?: string; playerId?: string; checkpointId: number; timestamp: number }
   | { type: 'PLAYER_FINISHED'; roomId?: string; playerId?: string; finishTimeMs: number }
   | { type: 'ACTIVATE_POWERUP'; roomId?: string; playerId?: string; powerUpId: AllowedPowerUpType }
+  | { type: 'QUEUE_JOIN'; mode?: RoomMode | string; mapPreference?: string; region?: MatchRegion; partyMembers?: QueuePartyMemberInfo[] }
+  | { type: 'QUEUE_LEAVE' }
+  | { type: 'ROOM_LIST_REQUEST' }
   | { type: 'PING'; timestamp: number };
 
 // Discriminant Server-to-Client Message Protocol
@@ -116,6 +148,12 @@ export type ServerMessage =
   | { type: 'RACE_FINISHED_BROADCAST'; results: RaceResultEntry[] }
   | { type: 'POWERUP_EVENT'; sourcePlayerId: string; powerUpId: AllowedPowerUpType; effect: string; timestamp: number }
   | { type: 'ROOM_STATE_CHANGED'; state: RoomState; metadata: RoomMetadata }
+  | { type: 'QUEUE_STATUS'; status: MatchmakingState; ticketId?: string; queueTimeMs?: number; estimatedWaitMs?: number; playersInQueue?: number; mmrRange?: [number, number]; region?: MatchRegion }
+  | { type: 'MATCH_SEARCHING'; ticketId: string; playersFound: number; maxPlayers: number; estimatedWaitSeconds: number; mmr: number; region: MatchRegion }
+  | { type: 'MATCH_FOUND'; matchId: string; roomId: string; mapId: string; mode: string; players: { playerId: string; displayName: string; avatarId: string }[]; countdownSeconds: number }
+  | { type: 'MATCH_CANCELLED'; reason: string }
+  | { type: 'MATCH_FAILED'; reason: string }
+  | { type: 'ROOM_LIST'; rooms: PublicRoomSummary[] }
   | { type: 'PONG'; clientTimestamp: number; serverTime: number }
   | { type: 'ERROR'; code: string; message: string };
 

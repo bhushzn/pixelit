@@ -28,6 +28,29 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
   const multiplayerResults = networkClient.results;
   const isMultiplayer = Boolean(multiplayerResults && multiplayerResults.length > 1);
 
+  const handleRematch = () => {
+    // Safely leave old race room if any before triggering rematch/play again
+    if (networkClient.currentRoom) {
+      networkClient.send({
+        type: 'LEAVE_ROOM',
+        roomId: networkClient.currentRoom.roomId,
+        playerId: networkClient.localPlayerId,
+      });
+    }
+    onPlayAgain();
+  };
+
+  const handleReturnToLobby = () => {
+    if (networkClient.currentRoom) {
+      networkClient.send({
+        type: 'LEAVE_ROOM',
+        roomId: networkClient.currentRoom.roomId,
+        playerId: networkClient.localPlayerId,
+      });
+    }
+    onBackToLobby();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131b2e]/60 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-sm md:max-w-md bg-white rounded-3xl p-6 shadow-[0_24px_48px_-12px_rgba(14,165,233,0.35)] border-4 border-[#e2e7ff] flex flex-col items-center text-center">
@@ -139,18 +162,18 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({
           </span>
         </div>
 
-        {/* Action Buttons (Play Again & Back to Lobby) */}
+        {/* Action Buttons (Rematch & Back to Lobby) */}
         <div className="w-full flex flex-col gap-2.5">
           <button
-            onClick={onPlayAgain}
+            onClick={handleRematch}
             className="w-full py-3.5 px-6 rounded-2xl bg-[#fea619] text-[#684000] font-rubik text-base font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_4px_0_0_#855300,0_10px_16px_-4px_rgba(254,166,25,0.4)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[22px]">replay</span>
-            PLAY AGAIN
+            {isMultiplayer ? 'REMATCH (FIND MATCH)' : 'PLAY AGAIN'}
           </button>
 
           <button
-            onClick={onBackToLobby}
+            onClick={handleReturnToLobby}
             className="w-full py-3 px-6 rounded-2xl bg-[#eaedff] hover:bg-[#dae2fd] text-[#131b2e] font-rubik text-sm font-extrabold tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">cottage</span>

@@ -1,5 +1,5 @@
 /**
- * Pixel Rush Real-Time Multiplayer Network Client
+ * Pixel Rush Real-Time Multiplayer Network Client (Phase 9 & 10)
  */
 
 import {
@@ -9,6 +9,10 @@ import {
   PlayerNetworkState,
   RoomMetadata,
   RaceResultEntry,
+  MatchmakingState,
+  MatchRegion,
+  PublicRoomSummary,
+  QueuePartyMemberInfo,
 } from "./networkTypes";
 import { RemotePlayerInterpolator } from "./NetworkInterpolation";
 
@@ -26,6 +30,11 @@ export class MultiplayerRaceClient implements INetworkTransport {
   public reconnectToken: string | null = null;
   public serverUrl = "ws://localhost:3001";
   public pingMs = 0;
+
+  // Phase 10 Matchmaking State
+  public matchmakingState: MatchmakingState = "IDLE";
+  public queueTicketId: string | null = null;
+  public publicRooms: PublicRoomSummary[] = [];
 
   private pingInterval: any = null;
 
@@ -65,6 +74,8 @@ export class MultiplayerRaceClient implements INetworkTransport {
 
         this.ws.onclose = () => {
           this.isConnected = false;
+          this.matchmakingState = "IDLE";
+          this.queueTicketId = null;
           this.stopHeartbeat();
           this.notifyStatus("disconnected");
         };
@@ -84,6 +95,8 @@ export class MultiplayerRaceClient implements INetworkTransport {
     }
     this.isConnected = false;
     this.currentRoom = null;
+    this.matchmakingState = "IDLE";
+    this.queueTicketId = null;
     this.players.clear();
     this.remoteInterpolators.clear();
   }
@@ -93,6 +106,35 @@ export class MultiplayerRaceClient implements INetworkTransport {
       return;
     }
     this.ws.send(JSON.stringify(message));
+  }
+
+  public joinQueue(options?: {
+    mode?: string;
+    mapPreference?: string;
+    region?: MatchRegion;
+    partyMembers?: QueuePartyMemberInfo[];
+  }): void {
+    this.matchmakingState = "QUEUED";
+    this.send({
+      type: "QUEUE_JOIN",
+      mode: options?.mode || "quick_race",
+      mapPreference: options?.mapPreference,
+      region: options?.region || "IN",
+      partyMembers: options?.partyMembers,
+    });
+  }
+
+  public leaveQueue(): void {
+    this.matchmakingState = "CANCELLED";
+    this.send({
+      type: "QUEUE_LEAVE",
+    });
+  }
+
+  public requestRoomList(): void {
+    this.send({
+      type: "ROOM_LIST_REQUEST",
+    });
   }
 
   public onMessage(callback: (message: ServerMessage) => void): () => void {
@@ -118,7 +160,38 @@ export class MultiplayerRaceClient implements INetworkTransport {
         this.reconnectToken = message.reconnectToken;
         break;
 
+      case "QUEUE_STATUS":
+        this.matchmakingState = message.status;
+        if (message.ticketId) {
+          this.queueTicketId = message.ticketId;
+        }
+        break;
+
+      case "MATCH_SEARCHING":
+        this.matchmakingState = "QUEUED";
+        this.queueTicketId = message.ticketId;
+        break;
+
+      case "MATCH_FOUND":
+        this.matchmakingState = "MATCH_FOUND";
+        break;
+
+      case "MATCH_CANCELLED":
+        this.matchmakingState = "CANCELLED";
+        this.queueTicketId = null;
+        break;
+
+      case "MATCH_FAILED":
+        this.matchmakingState = "FAILED";
+        this.queueTicketId = null;
+        break;
+
+      case "ROOM_LIST":
+        this.publicRooms = message.rooms;
+        break;
+
       case "ROOM_JOINED":
+        this.matchmakingState = "ROOM_ASSIGNED";
         this.currentRoom = message.room;
         this.localPlayerId = message.localPlayerId;
         this.players.clear();

@@ -4,25 +4,28 @@ import { WebSocketServer, WebSocket } from "ws";
 import { RaceRoom, ConnectedClient } from "./rooms/RaceRoom";
 import { SERVER_CONFIG } from "./config/serverConfig";
 import { ClientMessage, ServerMessage, ALLOWED_MAP_IDS } from "./types/network";
+import { MatchmakingService } from "./matchmaking/MatchmakingService";
 
 const app = express();
 app.use(express.json());
 
-const rooms: Map<string, RaceRoom> = new Map();
+export const rooms: Map<string, RaceRoom> = new Map();
+export const matchmakingService = new MatchmakingService(rooms);
 
 // HTTP Health check & status
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
     service: "pixel-rush-multiplayer",
-    phase: 9,
+    phase: 10,
     activeRooms: rooms.size,
+    queuedPlayers: matchmakingService.queue.totalPlayers(),
     timestamp: Date.now(),
   });
 });
 
 app.get("/rooms", (req, res) => {
-  const roomList = Array.from(rooms.values()).map((r) => r.getMetadata());
+  const roomList = matchmakingService.getPublicRoomSummaries();
   res.status(200).json({ rooms: roomList });
 });
 
@@ -56,6 +59,45 @@ wss.on("connection", (ws: WebSocket) => {
             playerId: boundPlayerId,
             serverTime: Date.now(),
             reconnectToken: "token-" + boundPlayerId + "-" + Date.now(),
+          });
+          break;
+        }
+
+        case "QUEUE_JOIN": {
+          const playerId = boundPlayerId || "runner-" + Math.random().toString(36).slice(2, 7);
+          boundPlayerId = playerId;
+          clientSender.playerId = playerId;
+
+          const joinResult = matchmakingService.joinQueue(clientSender, {
+            playerId,
+            mode: msg.mode,
+            mapPreference: msg.mapPreference,
+            region: msg.region,
+            partyMembers: msg.partyMembers,
+          });
+
+          if (!joinResult.success) {
+            clientSender.send({
+              type: "ERROR",
+              code: "QUEUE_JOIN_FAILED",
+              message: joinResult.error || "Failed to join matchmaking queue.",
+            });
+          }
+          break;
+        }
+
+        case "QUEUE_LEAVE": {
+          if (boundPlayerId) {
+            matchmakingService.leaveQueue(boundPlayerId);
+          }
+          break;
+        }
+
+        case "ROOM_LIST_REQUEST": {
+          const roomSummaries = matchmakingService.getPublicRoomSummaries();
+          clientSender.send({
+            type: "ROOM_LIST",
+            rooms: roomSummaries,
           });
           break;
         }
@@ -179,6 +221,9 @@ wss.on("connection", (ws: WebSocket) => {
   });
 
   ws.on("close", () => {
+    if (boundPlayerId) {
+      matchmakingService.handleDisconnect(boundPlayerId);
+    }
     if (boundRoomId && boundPlayerId) {
       const room = rooms.get(boundRoomId);
       if (room) {
@@ -193,6 +238,7 @@ wss.on("connection", (ws: WebSocket) => {
 
 export function startServer(port: number = SERVER_CONFIG.PORT): Promise<http.Server> {
   return new Promise((resolve) => {
+    matchmakingService.startLoop();
     server.listen(port, () => {
       console.log(`[PixelRush Server] Running on http://localhost:${port}`);
       resolve(server);
@@ -202,6 +248,7 @@ export function startServer(port: number = SERVER_CONFIG.PORT): Promise<http.Ser
 
 export function stopServer(): Promise<void> {
   return new Promise((resolve) => {
+    matchmakingService.stopLoop();
     wss.close(() => {
       server.close(() => resolve());
     });
