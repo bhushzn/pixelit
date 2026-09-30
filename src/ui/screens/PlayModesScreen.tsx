@@ -2,21 +2,24 @@ import React, { useState } from 'react';
 import { GameScreen } from '../../types/game';
 import { MAP_REGISTRY } from '../../game/maps/mapRegistry';
 import { socialService } from '../../services/social/socialService';
+import { networkClient } from '../../services/networking/NetworkClient';
 
 interface PlayModesScreenProps {
-  onStartRace: (mapId: string) => void;
+  onStartRace: (mapId: string, isMultiplayer?: boolean, roomId?: string) => void;
   onNavigate: (screen: GameScreen) => void;
 }
 
 export const PlayModesScreen: React.FC<PlayModesScreenProps> = ({ onStartRace, onNavigate }) => {
   const [selectedMapId, setSelectedMapId] = useState<string>('cloud_climb');
   const [showMatchmakingModal, setShowMatchmakingModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [matchmakingStatus, setMatchmakingStatus] = useState('Searching for online runners...');
 
   const maps = Object.values(MAP_REGISTRY);
   const selectedMap = MAP_REGISTRY[selectedMapId] || maps[0];
 
   const handleStartSoloRace = () => {
-    onStartRace(selectedMapId);
+    onStartRace(selectedMapId, false);
   };
 
   const handleOpenParty = () => {
@@ -27,6 +30,50 @@ export const PlayModesScreen: React.FC<PlayModesScreenProps> = ({ onStartRace, o
       socialService.setPartyMap(selectedMapId);
     }
     onNavigate('party');
+  };
+
+  const handleStartMatchmaking = async () => {
+    setIsSearching(true);
+    setMatchmakingStatus('Connecting to Pixel Rush multiplayer server...');
+
+    const profile = socialService.getProfile();
+    const roomId = 'quick-race-' + Math.floor(Math.random() * 100);
+
+    try {
+      const connected = await networkClient.connect('ws://localhost:3001');
+      if (connected) {
+        setMatchmakingStatus('Joining match room...');
+        networkClient.send({
+          type: 'JOIN_ROOM',
+          roomId,
+          playerId: profile.id,
+          displayName: profile.displayName,
+          avatarId: profile.avatarId,
+          mapId: selectedMapId,
+          mode: 'quick_race',
+        });
+
+        setTimeout(() => {
+          setIsSearching(false);
+          setShowMatchmakingModal(false);
+          onStartRace(selectedMapId, true, roomId);
+        }, 800);
+      } else {
+        setMatchmakingStatus('Multiplayer server offline. Launching solo time-trial sprint.');
+        setTimeout(() => {
+          setIsSearching(false);
+          setShowMatchmakingModal(false);
+          onStartRace(selectedMapId, false);
+        }, 1200);
+      }
+    } catch {
+      setMatchmakingStatus('Launching single player race...');
+      setTimeout(() => {
+        setIsSearching(false);
+        setShowMatchmakingModal(false);
+        onStartRace(selectedMapId, false);
+      }, 800);
+    }
   };
 
   return (
@@ -111,9 +158,9 @@ export const PlayModesScreen: React.FC<PlayModesScreenProps> = ({ onStartRace, o
           </div>
           <button
             onClick={() => setShowMatchmakingModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#3e4850] font-rubik text-xs font-bold transition-colors"
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] text-white font-rubik text-xs font-bold transition-all shadow-xs active:scale-95"
           >
-            Online Matchmaking
+            ⚡ Quick Matchmaking
           </button>
         </div>
 
@@ -136,25 +183,48 @@ export const PlayModesScreen: React.FC<PlayModesScreenProps> = ({ onStartRace, o
         </div>
       </div>
 
-      {/* Online Matchmaking Notice Modal */}
+      {/* Online Matchmaking Modal */}
       {showMatchmakingModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-[#e2e7ff] flex flex-col gap-3 text-center">
-            <div className="w-12 h-12 rounded-full bg-[#e0f2fe] text-[#0ea5e9] flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-[28px]">cloud_sync</span>
+            <div className="w-14 h-14 rounded-full bg-[#e0f2fe] text-[#0ea5e9] flex items-center justify-center mx-auto">
+              <span className={`material-symbols-outlined text-[32px] ${isSearching ? 'animate-spin' : ''}`}>
+                cloud_sync
+              </span>
             </div>
-            <h3 className="font-rubik text-base font-black text-[#131b2e]">Online Matchmaking</h3>
+            <h3 className="font-rubik text-base font-black text-[#131b2e]">Online Quick Match</h3>
             <p className="font-rubik text-xs text-[#3e4850] leading-relaxed">
-              Real online matchmaking servers are coming in a future multiplayer update!
-              <br /><br />
-              For now, enjoy playable single-player races across all 4 maps or simulate local party lobbies with demo squad members.
+              {isSearching ? matchmakingStatus : `Search for players on ${selectedMap.name} (up to 4 runners per room).`}
             </p>
-            <button
-              onClick={() => setShowMatchmakingModal(false)}
-              className="mt-2 py-2.5 px-4 rounded-xl bg-[#0ea5e9] text-white font-rubik text-xs font-black shadow-md"
-            >
-              Got it!
-            </button>
+
+            <div className="flex items-center gap-2 mt-2">
+              {!isSearching ? (
+                <>
+                  <button
+                    onClick={handleStartMatchmaking}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-[#0ea5e9] text-white font-rubik text-xs font-black shadow-md"
+                  >
+                    Find Match
+                  </button>
+                  <button
+                    onClick={() => setShowMatchmakingModal(false)}
+                    className="py-2.5 px-4 rounded-xl bg-gray-100 text-[#3e4850] font-rubik text-xs font-bold"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsSearching(false);
+                    setShowMatchmakingModal(false);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-gray-200 text-[#3e4850] font-rubik text-xs font-bold"
+                >
+                  Cancel Matchmaking
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

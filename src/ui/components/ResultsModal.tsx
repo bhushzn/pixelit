@@ -1,5 +1,6 @@
 import React from 'react';
 import { RaceStats } from '../../types/game';
+import { networkClient } from '../../services/networking/NetworkClient';
 
 interface ResultsModalProps {
   stats: RaceStats;
@@ -9,7 +10,13 @@ interface ResultsModalProps {
   onBackToLobby: () => void;
 }
 
-export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, mapSubtitle, onPlayAgain, onBackToLobby }) => {
+export const ResultsModal: React.FC<ResultsModalProps> = ({
+  stats,
+  mapTitle,
+  mapSubtitle,
+  onPlayAgain,
+  onBackToLobby,
+}) => {
   const formatTime = (ms: number): string => {
     const totalSecs = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSecs / 60);
@@ -17,6 +24,9 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, map
     const hundredths = Math.floor((ms % 1000) / 10);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}`;
   };
+
+  const multiplayerResults = networkClient.results;
+  const isMultiplayer = Boolean(multiplayerResults && multiplayerResults.length > 1);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#131b2e]/60 backdrop-blur-md animate-fadeIn">
@@ -39,9 +49,38 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, map
             {stats.finishPosition === 1 ? 'VICTORY DASH!' : `${stats.finishPosition}th Place`}
           </h2>
           <p className="font-sans-body text-xs text-[#3e4850] font-semibold">
-            {mapTitle ? `${mapTitle}${mapSubtitle ? ` • ${mapSubtitle}` : ''}` : 'Cloud Climb • Single-Player Vertical Slice'}
+            {mapTitle ? `${mapTitle}${mapSubtitle ? ` • ${mapSubtitle}` : ''}` : 'Cloud Climb'}
           </p>
         </div>
+
+        {/* Multiplayer Ranked Leaderboard (if in multiplayer) */}
+        {isMultiplayer && multiplayerResults && (
+          <div className="w-full mb-3 flex flex-col gap-1.5 max-h-36 overflow-y-auto pr-1">
+            {multiplayerResults.map((r) => {
+              const isLocal = r.playerId === networkClient.localPlayerId;
+              return (
+                <div
+                  key={r.playerId}
+                  className={`p-2 rounded-xl border flex items-center justify-between text-xs ${
+                    isLocal
+                      ? 'border-[#0ea5e9] bg-[#e0f2fe] font-black'
+                      : 'border-[#e2e7ff] bg-[#faf8ff] font-bold text-[#3e4850]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-white text-[#131b2e] flex items-center justify-center text-[10px] font-black shadow-xs">
+                      #{r.position}
+                    </span>
+                    <span className="truncate max-w-[120px]">{r.displayName} {isLocal && '(You)'}</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-[#006591]">
+                    {r.finished ? formatTime(r.finishTimeMs) : 'DNF'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="w-full grid grid-cols-2 gap-3 my-2">
@@ -104,7 +143,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, map
         <div className="w-full flex flex-col gap-2.5">
           <button
             onClick={onPlayAgain}
-            className="w-full py-3.5 px-6 rounded-2xl bg-[#fea619] text-[#684000] font-rubik text-base font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_4px_0_0_#855300,0_10px_16px_-4px_rgba(254,166,25,0.4)] active:translate-y-1 active:shadow-none transition-all"
+            className="w-full py-3.5 px-6 rounded-2xl bg-[#fea619] text-[#684000] font-rubik text-base font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_4px_0_0_#855300,0_10px_16px_-4px_rgba(254,166,25,0.4)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[22px]">replay</span>
             PLAY AGAIN
@@ -112,7 +151,7 @@ export const ResultsModal: React.FC<ResultsModalProps> = ({ stats, mapTitle, map
 
           <button
             onClick={onBackToLobby}
-            className="w-full py-3 px-6 rounded-2xl bg-[#eaedff] hover:bg-[#dae2fd] text-[#131b2e] font-rubik text-sm font-extrabold tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full py-3 px-6 rounded-2xl bg-[#eaedff] hover:bg-[#dae2fd] text-[#131b2e] font-rubik text-sm font-extrabold tracking-wider uppercase flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">cottage</span>
             BACK TO LOBBY

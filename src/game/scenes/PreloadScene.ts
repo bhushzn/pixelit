@@ -3,20 +3,31 @@ import { PixelAssets } from '../graphics/pixelAssets';
 
 export class PreloadScene extends Phaser.Scene {
   private mapId = 'cloud_climb';
+  private isMultiplayer = false;
+  private roomId = '';
+  private displayName = 'Runner';
 
   constructor() {
     super({ key: 'PreloadScene' });
   }
 
-  init(data?: { mapId?: string }): void {
+  init(data?: { mapId?: string; isMultiplayer?: boolean; roomId?: string; displayName?: string }): void {
     const requestedId = data?.mapId || this.registry?.get('mapId') || this.mapId || 'cloud_climb';
     this.mapId = requestedId;
+    this.isMultiplayer = data?.isMultiplayer ?? this.registry?.get('isMultiplayer') ?? false;
+    this.roomId = data?.roomId ?? this.registry?.get('roomId') ?? '';
+    this.displayName = data?.displayName ?? this.registry?.get('displayName') ?? 'Runner';
   }
 
   create(): void {
     this.generateTextures();
     this.createAnimations();
-    this.scene.start('RaceScene', { mapId: this.mapId });
+    this.scene.start('RaceScene', {
+      mapId: this.mapId,
+      isMultiplayer: this.isMultiplayer,
+      roomId: this.roomId,
+      displayName: this.displayName,
+    });
   }
 
   private safeAddCanvas(key: string, canvas: HTMLCanvasElement): void {

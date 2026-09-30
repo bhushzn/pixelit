@@ -14,18 +14,21 @@ import { FriendsScreen } from './ui/screens/FriendsScreen';
 import { PartyLobbyScreen } from './ui/screens/PartyLobbyScreen';
 import { GameView } from './ui/screens/GameView';
 import { authService } from './services/auth/authService';
-import { socialService } from './services/social/socialService';
 
 export default function App() {
   const [screen, setScreen] = useState<GameScreen>('title');
   const [selectedMapId, setSelectedMapId] = useState<string>('cloud_climb');
+  const [isMultiplayer, setIsMultiplayer] = useState<boolean>(false);
+  const [activeRoomId, setActiveRoomId] = useState<string>('');
   const [coins, setCoins] = useState<number>(() => authService.getCurrentUser()?.coins ?? 4850);
   const [gems] = useState<number>(() => authService.getCurrentUser()?.gems ?? 120);
 
-  const handleStartRace = (mapId?: string) => {
+  const handleStartRace = (mapId?: string, multiplayer = false, roomId = '') => {
     if (mapId) {
       setSelectedMapId(mapId);
     }
+    setIsMultiplayer(multiplayer);
+    setActiveRoomId(roomId);
     setScreen('race');
   };
 
@@ -34,6 +37,8 @@ export default function App() {
     if (current) {
       setCoins(current.coins);
     }
+    setIsMultiplayer(false);
+    setActiveRoomId('');
     setScreen('lobby');
   };
 
@@ -55,21 +60,21 @@ export default function App() {
       <main className="flex-1 flex flex-col w-full">
         {screen === 'title' && (
           <TitleScreen
-            onStartGame={() => handleStartRace(selectedMapId)}
+            onStartGame={() => handleStartRace(selectedMapId, false)}
             onEnterLobby={() => setScreen('lobby')}
           />
         )}
 
         {screen === 'lobby' && (
           <LobbyScreen
-            onStartRace={() => handleStartRace(selectedMapId)}
+            onStartRace={() => handleStartRace(selectedMapId, false)}
             onNavigate={(target) => setScreen(target)}
           />
         )}
 
         {screen === 'modes' && (
           <PlayModesScreen
-            onStartRace={(mapId) => handleStartRace(mapId)}
+            onStartRace={(mapId, mp, rId) => handleStartRace(mapId, mp, rId)}
             onNavigate={(target) => setScreen(target)}
           />
         )}
@@ -84,7 +89,7 @@ export default function App() {
         {screen === 'party' && (
           <PartyLobbyScreen
             onNavigate={(target) => setScreen(target)}
-            onStartRace={(mapId) => handleStartRace(mapId)}
+            onStartRace={(mapId, mp, rId) => handleStartRace(mapId, mp, rId)}
           />
         )}
 
@@ -92,6 +97,9 @@ export default function App() {
           <GameView
             onBackToLobby={handleBackToLobby}
             mapId={selectedMapId}
+            isMultiplayer={isMultiplayer}
+            roomId={activeRoomId}
+            displayName={authService.getCurrentUser()?.displayName || 'Pip'}
           />
         )}
       </main>

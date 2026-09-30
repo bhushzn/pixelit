@@ -3,10 +3,11 @@ import { GameScreen } from '../../types/game';
 import { socialService } from '../../services/social/socialService';
 import { PartyState, Friend } from '../../services/social/socialTypes';
 import { MAP_REGISTRY } from '../../game/maps/mapRegistry';
+import { networkClient } from '../../services/networking/NetworkClient';
 
 interface PartyLobbyScreenProps {
   onNavigate: (screen: GameScreen) => void;
-  onStartRace: (mapId: string) => void;
+  onStartRace: (mapId: string, isMultiplayer?: boolean, roomId?: string) => void;
 }
 
 const GAME_MODES = [
@@ -22,7 +23,6 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const isOnline = socialService.isOnlineMode();
   const profile = socialService.getProfile();
   const isLeader = party?.leaderId === profile.id;
   const currentMember = party?.members.find((m) => m.id === profile.id);
@@ -101,7 +101,29 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
     }
 
     await socialService.startRace();
-    onStartRace(party.selectedMapId);
+    const isMulti = party.members.length > 1;
+
+    // Connect to WebSocket if possible
+    if (isMulti) {
+      try {
+        await networkClient.connect('ws://localhost:3001');
+        if (networkClient.isConnected) {
+          networkClient.send({
+            type: 'JOIN_ROOM',
+            roomId: party.partyId,
+            playerId: profile.id,
+            displayName: profile.displayName,
+            avatarId: profile.avatarId,
+            mapId: party.selectedMapId,
+            mode: party.selectedMode,
+          });
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+
+    onStartRace(party.selectedMapId, isMulti, party.partyId);
   };
 
   if (!party) {
@@ -121,285 +143,256 @@ export const PartyLobbyScreen: React.FC<PartyLobbyScreenProps> = ({ onNavigate, 
     );
   }
 
-  // 4 Player Slots
-  const slots = [0, 1, 2, 3].map((idx) => party.members[idx] || null);
-  const selectedMap = MAP_REGISTRY[party.selectedMapId] || MAP_REGISTRY['cloud_climb'];
+  const mapList = Object.values(MAP_REGISTRY);
+  const selectedMapDef = MAP_REGISTRY[party.selectedMapId] || mapList[0];
 
   return (
     <div className="flex-1 w-full max-w-2xl mx-auto px-4 py-4 flex flex-col gap-4 pb-28">
-      {/* Toast */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#131b2e] text-white px-4 py-2 rounded-full font-rubik text-xs font-bold shadow-xl border border-white/20 animate-bounce">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#131b2e] text-white font-rubik text-xs font-bold py-2 px-4 rounded-full shadow-lg border border-[#3e4850] animate-bounce">
           {toastMessage}
         </div>
       )}
 
-      {/* Header Bar */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onNavigate('lobby')}
+            onClick={handleLeaveParty}
             className="w-9 h-9 rounded-full bg-white border border-[#e2e7ff] text-[#3e4850] flex items-center justify-center shadow-xs active:scale-90 transition-transform"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-rubik text-xl font-black text-[#131b2e] tracking-tight">
-                Party Lobby
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-[#fea619]/20 text-[#855300] font-rubik text-[10px] font-black">
-                {party.roomCode || 'ROOM-4P'}
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-full font-rubik text-[8px] font-black uppercase ${
-                  isOnline
-                    ? 'bg-[#00b17b]/15 text-[#006c49]'
-                    : 'bg-[#fea619]/20 text-[#855300]'
-                }`}
-              >
-                {isOnline ? 'Firebase' : 'Local'}
-              </span>
-            </div>
+            <h1 className="font-rubik text-xl font-black text-[#131b2e] tracking-tight">
+              Party Squad ({party.members.length}/4)
+            </h1>
             <p className="font-rubik text-[10px] font-bold text-[#006591]">
-              4-Player Squad • {party.members.length}/4 Runners Ready
+              Leader: {party.members.find((m) => m.id === party.leaderId)?.displayName || 'You'}
             </p>
           </div>
         </div>
 
         <button
           onClick={handleLeaveParty}
-          className="px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 text-red-600 font-rubik text-xs font-bold border border-red-200 transition-colors"
+          className="px-3 py-1.5 rounded-full bg-[#ffddb8] hover:bg-[#ffc994] text-[#855300] font-rubik text-xs font-black transition-colors"
         >
           Leave Party
         </button>
       </div>
 
-      {/* 4 Player Slots Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {slots.map((member, i) => (
-          <div
-            key={i}
-            className={`relative rounded-2xl p-3 border flex flex-col items-center justify-center min-h-[140px] text-center transition-all ${
-              member
-                ? 'bg-white border-[#e2e7ff] shadow-sm'
-                : 'bg-white/40 border-dashed border-[#c9e6ff] hover:bg-white/80'
-            }`}
-          >
-            {member ? (
-              <>
-                {/* Leader Crown */}
-                {member.isLeader && (
-                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-[#fea619] text-[#684000] flex items-center justify-center shadow-xs font-black text-[12px]" title="Party Leader">
-                    👑
-                  </span>
-                )}
-
-                {/* Kick Button (Leader Only) */}
-                {isLeader && !member.isLeader && (
-                  <button
-                    onClick={() => handleKickMember(member.id, member.displayName)}
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 flex items-center justify-center text-[10px]"
-                    title="Remove Player"
-                  >
-                    ✕
-                  </button>
-                )}
-
-                {/* Avatar Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#0ea5e9] to-[#38bdf8] text-white flex items-center justify-center font-black text-xl shadow-inner border-2 border-white mb-2">
-                  <span className="material-symbols-outlined text-[28px]">sports_score</span>
+      {/* Party Members (4 slots) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {[0, 1, 2, 3].map((slotIdx) => {
+          const member = party.members[slotIdx];
+          if (member) {
+            const isLocal = member.id === profile.id;
+            return (
+              <div
+                key={member.id}
+                className={`relative p-3 rounded-2xl border flex flex-col items-center text-center transition-all ${
+                  member.isReady
+                    ? 'border-[#00b17b] bg-[#e6fbf4]'
+                    : 'border-[#e2e7ff] bg-white'
+                }`}
+              >
+                {/* Status Badges */}
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {member.isLeader && (
+                    <span className="material-symbols-outlined text-[#fea619] text-[16px]">crown</span>
+                  )}
                 </div>
 
-                <span className="font-rubik text-xs font-black text-[#131b2e] truncate max-w-[100px]">
-                  {member.displayName}
-                </span>
-                <span className="font-rubik text-[9px] text-[#8e909a] font-bold">
-                  LVL {member.level} {member.isDemo ? '• DEMO' : ''}
-                </span>
+                <div className="w-12 h-12 rounded-full bg-[#f2f3ff] border-2 border-white shadow-xs flex items-center justify-center text-2xl mb-1.5">
+                  🏃
+                </div>
 
-                {/* Ready Status Badge */}
-                <div className="mt-1.5">
+                <div className="font-rubik text-xs font-black text-[#131b2e] truncate w-full">
+                  {member.displayName} {isLocal && '(You)'}
+                </div>
+
+                <div className="mt-2">
                   {member.isReady ? (
-                    <span className="px-2 py-0.5 rounded-full bg-[#00b17b]/15 text-[#006c49] font-rubik text-[9px] font-black flex items-center gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00b17b]"></span> READY
+                    <span className="px-2 py-0.5 rounded-full bg-[#00b17b] text-white font-rubik text-[9px] font-black uppercase tracking-wider">
+                      READY
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-[#fea619]/15 text-[#855300] font-rubik text-[9px] font-black">
-                      NOT READY
+                    <span className="px-2 py-0.5 rounded-full bg-[#8e909a]/20 text-[#3e4850] font-rubik text-[9px] font-black uppercase tracking-wider">
+                      WAITING
                     </span>
                   )}
                 </div>
-              </>
-            ) : (
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="w-full h-full flex flex-col items-center justify-center gap-1 text-[#0ea5e9] hover:text-[#0284c7] active:scale-95 transition-transform"
-              >
-                <div className="w-10 h-10 rounded-full bg-[#e0f2fe] flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[22px]">person_add</span>
-                </div>
-                <span className="font-rubik text-xs font-black">+ Invite</span>
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
 
-      {/* Invite Friends Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-sm w-full shadow-2xl border border-[#e2e7ff] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-rubik text-sm font-black text-[#131b2e]">Invite Online Friends</h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-
-            {friends.length === 0 ? (
-              <p className="font-rubik text-xs text-[#8e909a] py-3 text-center">No online friends available.</p>
-            ) : (
-              <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-                {friends.map((f: Friend) => (
-                  <div key={f.id} className="flex items-center justify-between p-2 rounded-xl bg-[#faf8ff] border border-[#e2e7ff]">
-                    <div>
-                      <div className="font-rubik text-xs font-bold text-[#131b2e]">{f.displayName}</div>
-                      <div className="font-rubik text-[9px] text-[#00b17b]">Online • LVL {f.level}</div>
-                    </div>
-                    <button
-                      onClick={() => handleInviteFriend(f)}
-                      className="px-3 py-1 rounded-lg bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-rubik text-[10px] font-black"
-                    >
-                      Invite
-                    </button>
-                  </div>
-                ))}
+                {isLeader && !isLocal && (
+                  <button
+                    onClick={() => handleKickMember(member.id, member.displayName)}
+                    className="mt-2 text-[10px] text-[#ba1a1a] font-bold hover:underline"
+                  >
+                    Kick
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Mode Selection */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e2e7ff] flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-rubik text-xs font-black text-[#131b2e] uppercase tracking-wider flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px] text-[#0ea5e9]">sports_esports</span>
-            Game Mode
-          </h2>
-          {!isLeader && <span className="font-rubik text-[10px] text-[#8e909a]">Leader selects mode</span>}
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {GAME_MODES.map((mode) => {
-            const isSelected = party.selectedMode === mode.id;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => handleSelectMode(mode.id)}
-                disabled={!isLeader}
-                className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                  isSelected
-                    ? 'border-[#0ea5e9] bg-[#e0f2fe] shadow-xs'
-                    : 'border-[#e2e7ff] bg-[#faf8ff] hover:bg-white'
-                } ${!isLeader ? 'cursor-default' : 'cursor-pointer'}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="material-symbols-outlined text-[18px] text-[#0ea5e9]">{mode.icon}</span>
-                  {isSelected && <span className="w-2 h-2 rounded-full bg-[#0ea5e9]"></span>}
-                </div>
-                <div className="mt-1">
-                  <span className="font-rubik text-xs font-black text-[#131b2e] block truncate">{mode.name}</span>
-                  <span className="font-rubik text-[9px] font-bold text-[#8e909a]">{mode.status}</span>
-                </div>
-              </button>
             );
-          })}
-        </div>
+          }
+
+          // Empty Slot
+          return (
+            <div
+              key={`empty-${slotIdx}`}
+              onClick={() => setShowInviteModal(true)}
+              className="p-3 rounded-2xl border-2 border-dashed border-[#dae2fd] bg-[#faf8ff] hover:bg-white flex flex-col items-center justify-center text-center cursor-pointer min-h-[120px] transition-all group"
+            >
+              <div className="w-10 h-10 rounded-full bg-white border border-[#dae2fd] text-[#0ea5e9] flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-[20px]">person_add</span>
+              </div>
+              <span className="font-rubik text-[11px] font-bold text-[#0ea5e9]">
+                + Invite
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Map Selection (4 Maps) */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e2e7ff] flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-rubik text-xs font-black text-[#131b2e] uppercase tracking-wider flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px] text-[#fea619]">map</span>
-            Select Map (4 Playable Maps)
-          </h2>
-          {!isLeader && <span className="font-rubik text-[10px] text-[#8e909a]">Leader selects map</span>}
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {Object.values(MAP_REGISTRY).map((m) => {
-            const isSelected = party.selectedMapId === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => handleSelectMap(m.id)}
-                disabled={!isLeader}
-                className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all relative overflow-hidden ${
-                  isSelected
-                    ? 'border-2 border-[#0ea5e9] bg-white shadow-md scale-102'
-                    : 'border-[#e2e7ff] bg-[#faf8ff] hover:bg-white opacity-80 hover:opacity-100'
-                } ${!isLeader ? 'cursor-default' : 'cursor-pointer'}`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="px-1.5 py-0.5 rounded bg-[#fea619]/20 text-[#855300] font-rubik text-[8px] font-black uppercase">
-                      {m.theme}
-                    </span>
-                    {isSelected && (
-                      <span className="material-symbols-outlined text-[#0ea5e9] text-[18px]">check_circle</span>
-                    )}
-                  </div>
-                  <h3 className="font-rubik text-xs font-black text-[#131b2e] leading-tight">{m.name}</h3>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-[#8e909a]">
-                  <span className="truncate">{m.subtitle}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Party Action Bar */}
-      <div className="bg-white rounded-2xl p-4 shadow-md border border-[#e2e7ff] flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Mode & Map Selection Section */}
+      <div className="bg-white rounded-2xl p-4 shadow-md border border-[#e2e7ff] flex flex-col gap-4">
+        {/* Game Mode */}
         <div>
-          <div className="font-rubik text-xs font-black text-[#131b2e]">
-            {selectedMap.name} • {party.selectedMode.replace('_', ' ').toUpperCase()}
-          </div>
-          <div className="font-rubik text-[10px] text-[#8e909a]">
-            {isLeader ? 'All members ready. Launch whenever ready!' : 'Waiting for party leader to start.'}
+          <label className="font-rubik text-xs font-black text-[#131b2e] uppercase tracking-wider mb-2 block">
+            Game Mode {!isLeader && '(Leader Only)'}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {GAME_MODES.map((m) => {
+              const isSelected = party.selectedMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => handleSelectMode(m.id)}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                    isSelected
+                      ? 'border-[#0ea5e9] bg-[#e0f2fe]'
+                      : 'border-[#e2e7ff] hover:bg-[#faf8ff]'
+                  }`}
+                >
+                  <div className="font-rubik text-xs font-black text-[#131b2e]">{m.name}</div>
+                  <div className="font-rubik text-[9px] font-bold text-[#3e4850] mt-0.5">{m.desc}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* Selected Track */}
+        <div>
+          <label className="font-rubik text-xs font-black text-[#131b2e] uppercase tracking-wider mb-2 block">
+            Selected Track {!isLeader && '(Leader Only)'}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {mapList.map((m) => {
+              const isSelected = party.selectedMapId === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => handleSelectMap(m.id)}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                    isSelected
+                      ? 'border-2 border-[#0ea5e9] bg-[#f0f9ff] shadow-xs'
+                      : 'border-[#e2e7ff] hover:bg-[#faf8ff]'
+                  }`}
+                >
+                  <div className="font-rubik text-xs font-black text-[#131b2e]">{m.name}</div>
+                  <div className="font-rubik text-[9px] font-bold text-[#8e909a] mt-0.5">{m.theme}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Action Footer Bar */}
+      <div className="bg-white rounded-2xl p-4 shadow-md border border-[#e2e7ff] flex items-center justify-between gap-3">
+        <div>
+          <div className="font-rubik text-sm font-black text-[#131b2e]">
+            {selectedMapDef.name}
+          </div>
+          <div className="font-rubik text-[10px] font-bold text-[#006591]">
+            {party.members.every((m) => m.isReady) ? 'All Members Ready!' : 'Waiting for Ready...'}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
           {!isLeader && (
             <button
               onClick={handleToggleReady}
-              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl font-rubik text-xs font-black transition-all ${
+              className={`py-3 px-5 rounded-xl font-rubik text-xs font-black shadow-md transition-all ${
                 currentMember?.isReady
-                  ? 'bg-[#fea619] text-[#684000]'
+                  ? 'bg-[#8e909a] text-white'
                   : 'bg-[#00b17b] text-white'
               }`}
             >
-              {currentMember?.isReady ? 'UNREADY' : 'READY'}
+              {currentMember?.isReady ? 'CANCEL READY' : 'READY UP'}
             </button>
           )}
 
           {isLeader && (
             <button
               onClick={handleLaunchGame}
-              className="flex-1 sm:flex-none px-8 py-3.5 rounded-2xl bg-[#fea619] hover:bg-[#ffb95f] text-[#684000] font-rubik text-sm font-black shadow-[0_4px_0_0_#855300] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
+              disabled={!party.members.every((m) => m.isReady)}
+              className={`py-3 px-6 rounded-xl font-rubik text-xs font-black shadow-md flex items-center gap-1.5 transition-all ${
+                party.members.every((m) => m.isReady)
+                  ? 'bg-[#fea619] hover:bg-[#ffb95f] text-[#684000] shadow-[0_3px_0_0_#855300] active:translate-y-0.5 cursor-pointer'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
-              <span className="material-symbols-outlined text-[20px]">sports_score</span>
-              <span>START RACE</span>
+              <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+              <span>LAUNCH RACE</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* Invite Friends Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-[#e2e7ff] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-rubik text-base font-black text-[#131b2e]">Invite Online Friends</h3>
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="w-8 h-8 rounded-full bg-[#f2f3ff] text-[#3e4850] flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+              {friends.length === 0 ? (
+                <p className="font-rubik text-xs text-[#8e909a] py-6 text-center">
+                  No online friends available to invite.
+                </p>
+              ) : (
+                friends.map((f) => (
+                  <div
+                    key={f.id}
+                    className="p-3 rounded-xl border border-[#e2e7ff] flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-rubik text-xs font-black text-[#131b2e]">{f.displayName}</div>
+                      <div className="font-rubik text-[10px] text-[#00b17b]">Online</div>
+                    </div>
+                    <button
+                      onClick={() => handleInviteFriend(f)}
+                      className="px-3 py-1 rounded-full bg-[#0ea5e9] text-white font-rubik text-xs font-black"
+                    >
+                      Invite
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

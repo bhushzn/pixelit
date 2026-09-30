@@ -5,6 +5,8 @@ import { getMapById } from '../maps/mapRegistry';
 import { MapDefinition, CheckpointDef } from '../maps/types';
 import { RaceManager } from '../systems/RaceManager';
 import { PowerUpManager } from '../powerups/PowerUpManager';
+import { networkClient } from '../../services/networking/NetworkClient';
+import { ServerMessage, AllowedPowerUpType } from '../../services/networking/networkTypes';
 
 interface MovingPlatformObject {
   sprite: Phaser.GameObjects.TileSprite | Phaser.GameObjects.Image;
@@ -18,6 +20,13 @@ interface MovingPlatformObject {
   dirY: number;
 }
 
+interface RemotePlayerVisual {
+  container: Phaser.GameObjects.Container;
+  sprite: Phaser.GameObjects.Sprite;
+  nameText: Phaser.GameObjects.Text;
+  currentAnim?: string;
+}
+
 export class RaceScene extends Phaser.Scene {
   public player!: Player;
   public raceManager!: RaceManager;
@@ -26,6 +35,14 @@ export class RaceScene extends Phaser.Scene {
 
   public mapData!: MapDefinition;
   private mapId: string = 'cloud_climb';
+  public isMultiplayer: boolean = false;
+  public roomId: string = '';
+  public displayName: string = 'Pip';
+
+  // Remote opponent visuals for multiplayer
+  private remoteSprites: Map<string, RemotePlayerVisual> = new Map();
+  private lastNetworkSendTime: number = 0;
+  private unsubscribeNetwork: (() => void) | null = null;
 
   // Collision groups
   private solidPlatforms!: Phaser.Physics.Arcade.StaticGroup;
@@ -65,11 +82,22 @@ export class RaceScene extends Phaser.Scene {
     super({ key: 'RaceScene' });
   }
 
+  init(data?: { mapId?: string; isMultiplayer?: boolean; roomId?: string; displayName?: string }): void {
+    const requestedMapId = data?.mapId || this.registry?.get('mapId') || this.mapId || 'cloud_climb';
+    this.mapId = requestedMapId;
+    this.isMultiplayer = data?.isMultiplayer ?? this.registry?.get('isMultiplayer') ?? false;
+    this.roomId = data?.roomId ?? this.registry?.get('roomId') ?? '';
+    this.displayName = data?.displayName ?? this.registry?.get('displayName') ?? 'Pip';
+  }
+
   create(): void {
-    this.mapData = CLOUD_CLIMB_MAP;
+    // 0. Resolve Selected Map Dynamically
+    this.mapData = getMapById(this.mapId);
     this.isCheckpointPassed = false;
     this.isRaceFinished = false;
     this.movingPlatformObjects = [];
+    this.remoteSprites.clear();
+    this.lastNetworkSendTime = 0;
 
     // 1. World Bounds & Ambient Sky
     this.physics.world.setBounds(0, 0, this.mapData.worldWidth, this.mapData.worldHeight);
@@ -121,6 +149,103 @@ export class RaceScene extends Phaser.Scene {
     // 13. Power-Up System Setup
     this.powerUpManager = new PowerUpManager(this);
     this.powerUpManager.initPickups(this.mapData.powerUps);
+
+    // 14. Real-time Multiplayer Setup
+    this.setupMultiplayerNetworking();
+  }
+
+  private setupMultiplayerNetworking(): void {
+    if (this.unsubscribeNetwork) {
+      this.unsubscribeNetwork();
+      this.unsubscribeNetwork = null;
+    }
+
+    if (!this.isMultiplayer && !networkClient.isConnected) {
+      return;
+    }
+
+    this.unsubscribeNetwork = networkClient.onMessage((msg: ServerMessage) => {
+      switch (msg.type) {
+        case 'PLAYER_LEFT': {
+          const visual = this.remoteSprites.get(msg.playerId);
+          if (visual) {
+            visual.container.destroy();
+            this.remoteSprites.delete(msg.playerId);
+          }
+          break;
+        }
+
+        case 'POWERUP_EVENT': {
+          if (msg.sourcePlayerId !== networkClient.localPlayerId) {
+            const visual = this.remoteSprites.get(msg.sourcePlayerId);
+            if (visual && this.textures.exists('particle_star')) {
+              const emitter = this.add.particles(visual.container.x, visual.container.y - 20, 'particle_star', {
+                speed: { min: 40, max: 100 },
+                scale: { start: 0.9, end: 0 },
+                lifespan: 400,
+                quantity: 8,
+                emitting: false,
+              });
+              emitter.explode();
+              this.time.delayedCall(400, () => emitter.destroy());
+            }
+          }
+          break;
+        }
+
+        case 'RACE_FINISHED_BROADCAST': {
+          if (msg.results && msg.results.length > 0) {
+            const localResult = msg.results.find((r) => r.playerId === networkClient.localPlayerId);
+            if (localResult && this.raceManager) {
+              const currentStats = this.raceManager.finishRace();
+              if (currentStats) {
+                currentStats.finishPosition = localResult.position;
+                currentStats.totalRacers = msg.results.length;
+                this.events.emit('race_finished', currentStats);
+              }
+            }
+          }
+          break;
+        }
+      }
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (this.unsubscribeNetwork) {
+        this.unsubscribeNetwork();
+        this.unsubscribeNetwork = null;
+      }
+    });
+  }
+
+  private getOrCreateRemoteVisual(playerId: string, displayName: string, avatarId: string): RemotePlayerVisual {
+    let visual = this.remoteSprites.get(playerId);
+    if (visual) return visual;
+
+    const container = this.add.container(0, 0);
+    container.setDepth(9);
+
+    const textureKey = this.textures.exists('player_rush_sheet') ? 'player_rush_sheet' : 'player_pip_idle';
+    const sprite = this.add.sprite(0, 0, textureKey);
+    if (this.anims.exists('player_anim_idle')) {
+      sprite.play('player_anim_idle');
+    }
+
+    const nameText = this.add.text(0, -28, displayName || 'Opponent', {
+      fontFamily: 'Rubik, sans-serif',
+      fontSize: '10px',
+      color: '#ffffff',
+      backgroundColor: '#006591cc',
+      padding: { x: 5, y: 2 },
+      align: 'center',
+    });
+    nameText.setOrigin(0.5, 0.5);
+
+    container.add([sprite, nameText]);
+
+    visual = { container, sprite, nameText, currentAnim: 'idle' };
+    this.remoteSprites.set(playerId, visual);
+    return visual;
   }
 
   private createParallaxBackdrop(): void {
@@ -242,7 +367,7 @@ export class RaceScene extends Phaser.Scene {
         this.tweens.add({
           targets: bird,
           x: bx + 1800,
-          y: by + ((i % 2 === 0 ? 35 : -35)),
+          y: by + (i % 2 === 0 ? 35 : -35),
           duration: 18000 + i * 2500,
           repeat: -1,
           ease: 'Linear',
@@ -592,7 +717,16 @@ export class RaceScene extends Phaser.Scene {
     // 3. Notify race manager (updates HUD to '✓ Checkpoint' and triggers toast)
     this.raceManager.passCheckpoint();
 
-    // 4. Sparkle celebratory flare
+    // 4. Send multiplayer checkpoint message
+    if (this.isMultiplayer || networkClient.isConnected) {
+      networkClient.send({
+        type: 'CHECKPOINT',
+        checkpointId: 1,
+        timestamp: Date.now(),
+      });
+    }
+
+    // 5. Sparkle celebratory flare
     if (this.textures.exists('particle_star')) {
       const emitter = this.add.particles(this.checkpointSprite.x, this.checkpointSprite.y - 50, 'particle_star', {
         speed: { min: 40, max: 120 },
@@ -617,7 +751,15 @@ export class RaceScene extends Phaser.Scene {
     // 2. Mark player finished and disable physics
     this.player.markFinished();
 
-    // 3. Celebratory fireworks & confetti
+    // 3. Send multiplayer finish event
+    if (this.isMultiplayer || networkClient.isConnected) {
+      networkClient.send({
+        type: 'PLAYER_FINISHED',
+        finishTimeMs: stats.finishTimeMs,
+      });
+    }
+
+    // 4. Celebratory fireworks & confetti
     if (this.textures.exists('particle_star')) {
       const emitter = this.add.particles(this.player.x, this.player.y - 40, 'particle_star', {
         speed: { min: 80, max: 220 },
@@ -631,7 +773,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.cameras.main.flash(300, 255, 255, 255);
 
-    // 4. Emit event once to open Results Screen
+    // 5. Emit event once to open Results Screen
     this.events.emit('race_finished', stats);
   }
 
@@ -681,7 +823,14 @@ export class RaceScene extends Phaser.Scene {
 
     // 3b. Check Power-Up Activation
     if ((this.keyE && Phaser.Input.Keyboard.JustDown(this.keyE)) || this.externalInput.usePowerUp) {
+      const used = this.powerUpManager.heldPowerUp;
       this.powerUpManager.activatePowerUp(this.player);
+      if (used && (this.isMultiplayer || networkClient.isConnected)) {
+        networkClient.send({
+          type: 'ACTIVATE_POWERUP',
+          powerUpId: used.id as AllowedPowerUpType,
+        });
+      }
       this.externalInput.usePowerUp = false;
     }
     this.powerUpManager.update(delta, this.player, this.coinsGroup);
@@ -693,6 +842,73 @@ export class RaceScene extends Phaser.Scene {
     // 5. Check Kill Plane / Falling out of level
     if (this.player.y > this.mapData.killPlaneY) {
       this.player.respawnAtSafeSpawn();
+    }
+
+    // 6. Update Real-time Multiplayer Synchronization
+    this.updateMultiplayerSync(time);
+  }
+
+  private updateMultiplayerSync(time: number): void {
+    if (!this.isMultiplayer && !networkClient.isConnected) return;
+
+    // Throttle send to 20Hz (every 50ms)
+    if (time - this.lastNetworkSendTime > 50 && this.player && this.player.body) {
+      this.lastNetworkSendTime = time;
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      networkClient.send({
+        type: 'PLAYER_STATE',
+        state: {
+          x: Math.round(this.player.x),
+          y: Math.round(this.player.y),
+          vx: Math.round(body.velocity.x),
+          vy: Math.round(body.velocity.y),
+          facing: this.player.flipX ? 'left' : 'right',
+          animation: this.player.currentState,
+          grounded: body.blocked.down || body.touching.down,
+        },
+      });
+    }
+
+    // Update and render remote opponents
+    const activePlayerIds = new Set<string>();
+    const renderTime = Date.now() - 50; // 50ms interpolation buffer
+
+    for (const [pid, pState] of networkClient.players.entries()) {
+      if (pid === networkClient.localPlayerId) continue;
+      activePlayerIds.add(pid);
+
+      const visual = this.getOrCreateRemoteVisual(pid, pState.displayName, pState.avatarId);
+      const interp = networkClient.remoteInterpolators.get(pid);
+
+      if (interp) {
+        const sampled = interp.sample(renderTime);
+        if (sampled) {
+          visual.container.setPosition(sampled.x, sampled.y);
+          visual.sprite.setFlipX(sampled.facing === 'left');
+          
+          let targetAnim = 'player_anim_idle';
+          if (sampled.animation === 'running' || Math.abs(sampled.vx) > 30) targetAnim = 'player_anim_run';
+          else if (sampled.animation === 'jumping' || sampled.vy < -50) targetAnim = 'player_anim_jump';
+          else if (sampled.animation === 'falling' || sampled.vy > 50) targetAnim = 'player_anim_fall';
+          else if (sampled.animation === 'hit') targetAnim = 'player_anim_hit';
+
+          if (visual.currentAnim !== targetAnim && this.anims.exists(targetAnim)) {
+            visual.sprite.play(targetAnim);
+            visual.currentAnim = targetAnim;
+          }
+        }
+      } else {
+        visual.container.setPosition(pState.x, pState.y);
+        visual.sprite.setFlipX(pState.facing === 'left');
+      }
+    }
+
+    // Cleanup disconnected remote visuals
+    for (const [pid, visual] of this.remoteSprites.entries()) {
+      if (!activePlayerIds.has(pid)) {
+        visual.container.destroy();
+        this.remoteSprites.delete(pid);
+      }
     }
   }
 

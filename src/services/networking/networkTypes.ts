@@ -1,98 +1,129 @@
 /**
- * Pixel Rush Real-Time Multiplayer Networking Architecture
- * Maximum Capacities:
- *   - Random Matchmaking: 4 players
- *   - Party Match: 4 players
- *   - Custom Room: 6 players
+ * Pixel Rush Real-Time Multiplayer Networking Architecture (Phase 9)
+ * 4-Player Authoritative Real-Time Race Foundation
  */
 
-export type RoomMode = 'random_match' | 'party_room' | 'custom_room';
+export type RoomMode = 'quick_race' | 'time_trial' | 'custom_room' | 'party_room';
 
-export const MAX_PLAYERS_CONFIG = {
-  random_match: 4,
-  party_room: 4,
-  custom_room: 6,
-} as const;
+export const MAX_PLAYERS_PER_ROOM = 4;
 
-export interface InputState {
-  sequence: number;
-  timestamp: number;
-  moveLeft: boolean;
-  moveRight: boolean;
-  jump: boolean;
-  dash: boolean;
-}
+export const ALLOWED_MAP_IDS = [
+  'cloud_climb',
+  'sky_bridge',
+  'candy_canyon',
+  'jungle_jump',
+] as const;
 
-export interface PlayerState {
+export type AllowedMapId = typeof ALLOWED_MAP_IDS[number];
+
+export const ALLOWED_POWERUP_TYPES = [
+  'banana_bounce',
+  'mini_tornado',
+  'freeze_pop',
+  'wind_blast',
+  'boomerang_bonk',
+  'coin_magnet',
+] as const;
+
+export type AllowedPowerUpType = typeof ALLOWED_POWERUP_TYPES[number];
+
+export type RoomState = 'LOBBY' | 'COUNTDOWN' | 'RACING' | 'FINISHED' | 'CLOSED';
+
+export type PlayerConnectionState = 'CONNECTED' | 'DISCONNECTED' | 'RECONNECTED';
+
+export interface PlayerNetworkState {
   playerId: string;
   displayName: string;
-  characterSkin: string;
+  avatarId: string;
   x: number;
   y: number;
-  velocityX: number;
-  velocityY: number;
+  vx: number;
+  vy: number;
   facing: 'left' | 'right';
-  state: 'idle' | 'running' | 'jumping' | 'falling' | 'hit' | 'respawning' | 'finished';
-  coins: number;
+  animation: string;
+  grounded: boolean;
   checkpointId: number;
-  progressPercent: number;
+  finished: boolean;
   finishTimeMs?: number;
+  finishPosition?: number;
+  connected: boolean;
+  connectionState: PlayerConnectionState;
+  isReady: boolean;
+  isLeader: boolean;
+  lastUpdate: number;
   pingMs: number;
 }
 
-export type MatchStatus = 'waiting' | 'countdown' | 'in_progress' | 'finished';
-
-export interface MatchState {
-  matchId: string;
-  mapId: string;
-  mode: RoomMode;
-  status: MatchStatus;
-  startTime: number;
-  elapsedMs: number;
-  players: Record<string, PlayerState>;
-  leaderboard: string[]; // Ordered list of playerIds by race position
+export interface NetworkInputPacket {
+  left: boolean;
+  right: boolean;
+  jump: boolean;
+  dash: boolean;
+  activatePowerUp?: boolean;
+  sequence: number;
+  timestamp: number;
 }
 
-export interface GameRoom {
+export interface RoomMetadata {
   roomId: string;
-  roomCode?: string; // 6-character code for custom rooms (e.g. SKY420)
-  mode: RoomMode;
-  hostPlayerId: string;
-  maxPlayers: number;
-  isPrivate: boolean;
   mapId: string;
-  players: Array<{
-    id: string;
-    name: string;
-    isReady: boolean;
-    isHost: boolean;
-  }>;
+  mode: RoomMode;
+  state: RoomState;
+  leaderId: string;
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
+  countdownSeconds?: number;
+  raceStartTime?: number;
 }
 
-// Client to Server Messages
+export interface RaceResultEntry {
+  playerId: string;
+  displayName: string;
+  avatarId: string;
+  position: number;
+  finishTimeMs: number;
+  checkpointProgress: number;
+  finished: boolean;
+}
+
+// Discriminant Client-to-Server Message Protocol
 export type ClientMessage =
-  | { type: 'join_queue'; mode: RoomMode; mapId?: string }
-  | { type: 'join_room'; roomCode: string }
-  | { type: 'create_custom_room'; mapId: string; isPrivate: boolean }
-  | { type: 'set_ready'; isReady: boolean }
-  | { type: 'player_input'; input: InputState }
-  | { type: 'activate_powerup'; powerUpId: string }
-  | { type: 'leave_room' };
+  | { type: 'CLIENT_HELLO'; playerId?: string; displayName?: string; avatarId?: string; reconnectToken?: string }
+  | { type: 'JOIN_ROOM'; roomId?: string; playerId?: string; displayName?: string; avatarId?: string; mapId?: string; mode?: RoomMode | string }
+  | { type: 'LEAVE_ROOM'; roomId?: string; playerId?: string }
+  | { type: 'PLAYER_READY'; roomId?: string; playerId?: string; isReady: boolean }
+  | { type: 'START_REQUEST'; roomId?: string; playerId?: string }
+  | { type: 'INPUT'; roomId?: string; playerId?: string; input: NetworkInputPacket }
+  | { type: 'PLAYER_STATE'; roomId?: string; playerId?: string; state: Partial<PlayerNetworkState> }
+  | { type: 'CHECKPOINT'; roomId?: string; playerId?: string; checkpointId: number; timestamp: number }
+  | { type: 'PLAYER_FINISHED'; roomId?: string; playerId?: string; finishTimeMs: number }
+  | { type: 'ACTIVATE_POWERUP'; roomId?: string; playerId?: string; powerUpId: AllowedPowerUpType }
+  | { type: 'PING'; timestamp: number };
 
-// Server to Client Messages
+// Discriminant Server-to-Client Message Protocol
 export type ServerMessage =
-  | { type: 'room_joined'; room: GameRoom; localPlayerId: string }
-  | { type: 'match_countdown'; startTimestamp: number; countdownSeconds: number }
-  | { type: 'match_start'; match: MatchState }
-  | { type: 'world_snapshot'; timestamp: number; players: Record<string, PlayerState> }
-  | { type: 'player_finished'; playerId: string; position: number; finishTimeMs: number }
-  | { type: 'match_end'; finalResults: Array<{ playerId: string; position: number; timeMs: number }> }
-  | { type: 'error'; message: string };
+  | { type: 'SERVER_HELLO'; playerId: string; serverTime: number; reconnectToken: string }
+  | { type: 'ROOM_JOINED'; room: RoomMetadata; players: PlayerNetworkState[]; localPlayerId: string }
+  | { type: 'PLAYER_JOINED'; player: PlayerNetworkState; playerCount: number }
+  | { type: 'PLAYER_LEFT'; playerId: string; newLeaderId?: string; playerCount: number }
+  | { type: 'PLAYER_STATE_UPDATED'; playerId: string; isReady?: boolean; connectionState?: PlayerConnectionState }
+  | { type: 'COUNTDOWN'; countdownSeconds: number; startTimestamp: number }
+  | { type: 'RACE_START'; raceStartTime: number; mapId: string }
+  | { type: 'WORLD_SNAPSHOT'; timestamp: number; players: Record<string, PlayerNetworkState> }
+  | { type: 'CHECKPOINT_BROADCAST'; playerId: string; checkpointId: number; serverTime: number }
+  | { type: 'PLAYER_FINISHED_BROADCAST'; playerId: string; position: number; finishTimeMs: number }
+  | { type: 'RACE_FINISHED_BROADCAST'; results: RaceResultEntry[] }
+  | { type: 'POWERUP_EVENT'; sourcePlayerId: string; powerUpId: AllowedPowerUpType; effect: string; timestamp: number }
+  | { type: 'ROOM_STATE_CHANGED'; state: RoomState; metadata: RoomMetadata }
+  | { type: 'PONG'; clientTimestamp: number; serverTime: number }
+  | { type: 'ERROR'; code: string; message: string };
 
-export interface NetworkClient {
+export interface INetworkTransport {
   isConnected: boolean;
-  connect(serverUrl: string): Promise<boolean>;
+  connect(url: string): Promise<boolean>;
   disconnect(): void;
   send(message: ClientMessage): void;
   onMessage(callback: (message: ServerMessage) => void): () => void;
+  onStatusChange(callback: (status: 'connected' | 'disconnected' | 'error', error?: string) => void): () => void;
 }

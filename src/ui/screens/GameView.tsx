@@ -8,13 +8,23 @@ import { getMapById } from '../../game/maps/mapRegistry';
 import { GameHUD } from '../components/GameHUD';
 import { MobileTouchHUD, TouchInputState } from '../components/MobileTouchHUD';
 import { ResultsModal } from '../components/ResultsModal';
+import { networkClient } from '../../services/networking/NetworkClient';
 
 interface GameViewProps {
   onBackToLobby: () => void;
   mapId?: string;
+  isMultiplayer?: boolean;
+  roomId?: string;
+  displayName?: string;
 }
 
-export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'cloud_climb' }) => {
+export const GameView: React.FC<GameViewProps> = ({
+  onBackToLobby,
+  mapId = 'cloud_climb',
+  isMultiplayer = false,
+  roomId = '',
+  displayName = 'Pip',
+}) => {
   const activeMap = getMapById(mapId);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -28,7 +38,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
     showCheckpointToast: false,
     progressPercent: 0,
     position: 1,
-    totalRacers: 1,
+    totalRacers: isMultiplayer ? (networkClient.currentRoom?.playerCount || 2) : 1,
     state: 'READY',
   });
 
@@ -48,7 +58,6 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
   // Detect Touch / Mobile Screen
   useEffect(() => {
     const checkMobile = () => {
-      // If the device has fine pointer (mouse) and can hover, it is a desktop device
       const isDesktop = window.matchMedia('(pointer: fine) and (hover: hover)').matches;
       if (isDesktop) {
         setIsMobile(false);
@@ -86,7 +95,12 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const config = createGameConfig(containerRef.current);
+    const config = createGameConfig(containerRef.current, {
+      mapId,
+      isMultiplayer,
+      roomId,
+      displayName,
+    });
     const game = new Phaser.Game(config);
     gameRef.current = game;
 
@@ -99,6 +113,9 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
         // Hook up Race Manager updates
         if (raceScene.raceManager) {
           raceScene.raceManager.onUpdate((data) => {
+            if (isMultiplayer && networkClient.currentRoom) {
+              data.totalRacers = Math.max(networkClient.currentRoom.playerCount, data.totalRacers);
+            }
             setHudData(data);
           });
         }
@@ -126,7 +143,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
         sceneRef.current = null;
       }
     };
-  }, [mapId]);
+  }, [mapId, isMultiplayer, roomId, displayName]);
 
   const handleRestart = () => {
     setFinishedStats(null);
@@ -137,7 +154,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
       showCheckpointToast: false,
       progressPercent: 0,
       position: 1,
-      totalRacers: 1,
+      totalRacers: isMultiplayer ? (networkClient.currentRoom?.playerCount || 2) : 1,
       state: 'READY',
     });
 
@@ -153,8 +170,15 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
           setFinishedStats(stats);
         });
       });
-      scene.scene.restart({ mapId });
+      scene.scene.restart({ mapId, isMultiplayer, roomId, displayName });
     }
+  };
+
+  const handleExit = () => {
+    if (isMultiplayer && networkClient.isConnected) {
+      networkClient.send({ type: 'LEAVE_ROOM' });
+    }
+    onBackToLobby();
   };
 
   return (
@@ -169,7 +193,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
       <GameHUD
         hudData={hudData}
         mapTitle={activeMap.name}
-        onExit={onBackToLobby}
+        onExit={handleExit}
         onRestart={handleRestart}
       />
 
@@ -188,7 +212,7 @@ export const GameView: React.FC<GameViewProps> = ({ onBackToLobby, mapId = 'clou
           mapTitle={activeMap.name}
           mapSubtitle={activeMap.subtitle}
           onPlayAgain={handleRestart}
-          onBackToLobby={onBackToLobby}
+          onBackToLobby={handleExit}
         />
       )}
     </div>
