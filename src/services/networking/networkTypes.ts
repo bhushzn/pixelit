@@ -1,6 +1,6 @@
 /**
- * Pixel Rush Real-Time Multiplayer Networking Architecture (Phase 9 & 10)
- * 4-Player Authoritative Real-Time Race & Ranked Matchmaking Protocol
+ * Pixel Rush Real-Time Multiplayer Networking Architecture (Phase 9, 10 & 11)
+ * 4-Player Authoritative Real-Time Race, Ranked Matchmaking & Cosmetic Synchronization
  */
 
 export type RoomMode = 'quick_race' | 'time_trial' | 'custom_room' | 'party_room';
@@ -46,6 +46,9 @@ export interface PlayerNetworkState {
   playerId: string;
   displayName: string;
   avatarId: string;
+  skinId?: string;
+  hatId?: string;
+  trailId?: string;
   x: number;
   y: number;
   vx: number;
@@ -114,12 +117,15 @@ export interface QueuePartyMemberInfo {
   playerId: string;
   displayName: string;
   avatarId: string;
+  skinId?: string;
+  hatId?: string;
+  trailId?: string;
 }
 
 // Discriminant Client-to-Server Message Protocol
 export type ClientMessage =
   | { type: 'CLIENT_HELLO'; playerId?: string; displayName?: string; avatarId?: string; reconnectToken?: string }
-  | { type: 'JOIN_ROOM'; roomId?: string; playerId?: string; displayName?: string; avatarId?: string; mapId?: string; mode?: RoomMode | string }
+  | { type: 'JOIN_ROOM'; roomId?: string; playerId?: string; displayName?: string; avatarId?: string; skinId?: string; hatId?: string; trailId?: string; mapId?: string; mode?: RoomMode | string }
   | { type: 'LEAVE_ROOM'; roomId?: string; playerId?: string }
   | { type: 'PLAYER_READY'; roomId?: string; playerId?: string; isReady: boolean }
   | { type: 'START_REQUEST'; roomId?: string; playerId?: string }
@@ -128,7 +134,7 @@ export type ClientMessage =
   | { type: 'CHECKPOINT'; roomId?: string; playerId?: string; checkpointId: number; timestamp: number }
   | { type: 'PLAYER_FINISHED'; roomId?: string; playerId?: string; finishTimeMs: number }
   | { type: 'ACTIVATE_POWERUP'; roomId?: string; playerId?: string; powerUpId: AllowedPowerUpType }
-  | { type: 'QUEUE_JOIN'; mode?: RoomMode | string; mapPreference?: string; region?: MatchRegion; partyMembers?: QueuePartyMemberInfo[] }
+  | { type: 'QUEUE_JOIN'; mode?: RoomMode | string; mapPreference?: string; region?: MatchRegion; partyMembers?: QueuePartyMemberInfo[]; skinId?: string; hatId?: string; trailId?: string }
   | { type: 'QUEUE_LEAVE' }
   | { type: 'ROOM_LIST_REQUEST' }
   | { type: 'PING'; timestamp: number };

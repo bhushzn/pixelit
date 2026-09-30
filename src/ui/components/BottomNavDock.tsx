@@ -18,9 +18,9 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentScreen, onN
   const navItems = [
     { id: 'lobby' as GameScreen, label: 'Lobby', icon: 'cottage' },
     { id: 'modes' as GameScreen, label: 'Play', icon: 'sports_esports' },
-    { id: 'friends' as GameScreen, label: 'Friends', icon: 'group', badge: partyBadge || '3' },
-    { id: 'heroes' as const, label: 'Heroes', icon: 'checkroom' },
-    { id: 'shop' as const, label: 'Shop', icon: 'redeem' },
+    { id: 'friends' as GameScreen, label: 'Friends', icon: 'group', badge: partyBadge },
+    { id: 'heroes' as GameScreen, label: 'Heroes', icon: 'checkroom' },
+    { id: 'shop' as GameScreen, label: 'Shop', icon: 'redeem' },
   ];
 
   return (
@@ -32,14 +32,8 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({ currentScreen, onN
             return (
               <button
                 key={item.label}
-                onClick={() => {
-                  if (item.id === 'lobby' || item.id === 'modes' || item.id === 'friends') {
-                    onNavigate(item.id);
-                  } else {
-                    alert(`${item.label} is coming in the next update! Playable maps and Local Social/Party are ready in 'Play', 'Friends', or 'Lobby'.`);
-                  }
-                }}
-                className={`relative flex flex-col items-center justify-center min-w-[54px] h-12 rounded-full transition-all duration-200 active:scale-90 ${
+                onClick={() => onNavigate(item.id)}
+                className={`relative flex flex-col items-center justify-center min-w-[54px] h-12 rounded-full transition-all duration-200 active:scale-90 cursor-pointer ${
                   isActive
                     ? 'bg-[#0ea5e9] text-white shadow-md scale-105'
                     : 'text-[#3e4850] hover:text-[#006591]'

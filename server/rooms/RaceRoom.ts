@@ -65,7 +65,8 @@ export class RaceRoom {
   public addPlayer(
     client: ConnectedClient,
     displayName: string,
-    avatarId: string = "pip"
+    avatarId: string = "pip",
+    cosmetics?: { skinId?: string; hatId?: string; trailId?: string }
   ): { success: boolean; error?: string; player?: PlayerNetworkState } {
     if (this.state !== "LOBBY") {
       return { success: false, error: "Cannot join room: Race is already in progress or finished." };
@@ -88,6 +89,9 @@ export class RaceRoom {
       playerId,
       displayName: displayName || "Runner-" + playerId.slice(0, 4),
       avatarId: avatarId || "pip",
+      skinId: cosmetics?.skinId || "classic_runner",
+      hatId: cosmetics?.hatId || "none_hat",
+      trailId: cosmetics?.trailId || "none_trail",
       x: 100 + this.players.size * 50,
       y: 540,
       vx: 0,

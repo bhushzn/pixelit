@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameScreen } from '../../types/game';
 import { socialService } from '../../services/social/socialService';
+import { progressionService } from '../../services/progression/progressionService';
+import { PlayerProgression } from '../../services/progression/progressionTypes';
+import { CosmeticPreview } from '../components/CosmeticPreview';
 
 interface LobbyScreenProps {
   onStartRace: () => void;
@@ -10,6 +13,14 @@ interface LobbyScreenProps {
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigate }) => {
   const profile = socialService.getProfile();
   const party = socialService.getPartyState();
+  const [progression, setProgression] = useState<PlayerProgression>(() => progressionService.getProgression());
+
+  useEffect(() => {
+    const unsub = progressionService.subscribe((p) => {
+      setProgression(p);
+    });
+    return () => unsub();
+  }, []);
 
   const handleInvite = () => {
     onNavigate('friends');
@@ -48,7 +59,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
               {profile.displayName}
             </span>
             <span className="px-1.5 py-0.2 rounded bg-[#0ea5e9]/10 text-[#006591] font-rubik text-[10px] font-black">
-              LVL {profile.level}
+              LVL {progression.level}
             </span>
           </div>
           <span className="font-rubik text-[10px] font-bold text-[#8e909a] mt-1 tracking-wider uppercase">
@@ -56,73 +67,39 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
           </span>
         </div>
 
-        {/* Character Visual / Mascot Stand */}
-        <div className="relative flex flex-col items-center justify-center my-auto">
-          {/* Stylized Animated Runner Avatar */}
-          <div className="relative flex flex-col items-center">
-            {/* Pip Avatar Representation */}
-            <div className="w-36 h-36 rounded-full bg-gradient-to-b from-[#c9e6ff] to-[#f2f3ff] border-4 border-white shadow-[0_12px_24px_rgba(14,165,233,0.25)] flex items-center justify-center transform group-hover:scale-105 active:scale-95 transition-transform">
-              <div className="relative flex flex-col items-center">
-                {/* Cap & Goggles */}
-                <div className="w-16 h-7 bg-[#006591] rounded-t-full relative flex items-center justify-center">
-                  <div className="w-10 h-3 bg-[#0ea5e9] rounded-full border border-white flex items-center justify-around px-1">
-                    <div className="w-2 h-2 rounded-full bg-white/80"></div>
-                    <div className="w-2 h-2 rounded-full bg-white/80"></div>
-                  </div>
-                </div>
-                {/* Head */}
-                <div className="w-14 h-12 bg-[#ffe0bd] rounded-b-2xl flex flex-col items-center justify-center -mt-1 shadow-inner">
-                  <div className="flex gap-3 mb-1">
-                    <div className="w-2 h-2 rounded-full bg-[#131b2e]"></div>
-                    <div className="w-2 h-2 rounded-full bg-[#131b2e]"></div>
-                  </div>
-                  <div className="w-4 h-1.5 bg-[#fea619] rounded-full"></div>
-                </div>
-                {/* Yellow Hoodie Body */}
-                <div className="w-18 h-10 bg-[#fea619] rounded-xl -mt-1 flex items-center justify-center shadow-md">
-                  <div className="w-1 h-8 bg-[#855300]"></div>
-                </div>
-                {/* Red Sneakers */}
-                <div className="flex gap-4 -mt-1">
-                  <div className="w-6 h-3 bg-[#f43f5e] rounded-md border-b-2 border-white"></div>
-                  <div className="w-6 h-3 bg-[#f43f5e] rounded-md border-b-2 border-white"></div>
-                </div>
-              </div>
-
-              {/* Ready Tag Pill */}
-              <div className="absolute -top-1 -right-2 bg-[#fea619] text-[#684000] font-rubik text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 animate-bounce">
-                <span className="material-symbols-outlined text-[12px]">bolt</span> READY!
-              </div>
-            </div>
-
-            {/* Podium Island Base */}
-            <div className="w-44 h-8 bg-[#00b17b] rounded-full border-b-4 border-[#006c49] shadow-md flex items-center justify-center mt-2 px-3">
-              <span className="font-rubik text-[10px] font-black text-white uppercase tracking-wider">
-                🌱 Floating Island Turf
-              </span>
-            </div>
-          </div>
+        {/* Character Visual / Mascot Stand with Live Equipped Cosmetics */}
+        <div
+          onClick={() => onNavigate('heroes')}
+          className="relative flex flex-col items-center justify-center my-auto cursor-pointer"
+        >
+          <CosmeticPreview
+            skinId={progression.equippedSkinId}
+            hatId={progression.equippedHatId}
+            trailId={progression.equippedTrailId}
+            size="md"
+            showPodium={true}
+          />
         </div>
 
         {/* Customization Actions Strip */}
         <div className="z-10 w-full flex items-center justify-around pt-2">
           <button
             onClick={() => onNavigate('friends')}
-            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px] text-[#0ea5e9]">group</span>
             <span className="font-rubik text-[10px] font-bold">Friends</span>
           </button>
           <button
-            onClick={() => onNavigate('friends')}
-            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
+            onClick={() => onNavigate('heroes')}
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#fea619]">face</span>
-            <span className="font-rubik text-[10px] font-bold">Profile</span>
+            <span className="material-symbols-outlined text-[16px] text-[#fea619]">checkroom</span>
+            <span className="font-rubik text-[10px] font-bold">Locker</span>
           </button>
           <button
             onClick={handleInvite}
-            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all"
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-white shadow-xs border border-[#e2e7ff] text-[#3e4850] active:scale-95 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px] text-[#00b17b]">share</span>
             <span className="font-rubik text-[10px] font-bold">Invite</span>
@@ -134,7 +111,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
       <section className="w-full flex flex-col gap-2">
         <button
           onClick={onStartRace}
-          className="w-full py-4 px-6 rounded-2xl bg-[#fea619] hover:bg-[#ffb95f] text-[#684000] shadow-[0_6px_0_0_#855300,0_16px_28px_-6px_rgba(254,166,25,0.45)] active:translate-y-1.5 active:shadow-[0_1px_0_0_#855300] transition-all flex items-center justify-between"
+          className="w-full py-4 px-6 rounded-2xl bg-[#fea619] hover:bg-[#ffb95f] text-[#684000] shadow-[0_6px_0_0_#855300,0_16px_28px_-6px_rgba(254,166,25,0.45)] active:translate-y-1.5 active:shadow-[0_1px_0_0_#855300] transition-all flex items-center justify-between cursor-pointer"
         >
           <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#855300] shadow-sm shrink-0">
             <span className="material-symbols-outlined text-[26px]">play_arrow</span>
@@ -154,7 +131,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
         <div className="grid grid-cols-2 gap-2.5 w-full">
           <button
             onClick={() => onNavigate('party')}
-            className="p-3 rounded-2xl bg-[#0ea5e9] text-white shadow-[0_4px_0_0_#006591,0_10px_18px_-4px_rgba(14,165,233,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left"
+            className="p-3 rounded-2xl bg-[#0ea5e9] text-white shadow-[0_4px_0_0_#006591,0_10px_18px_-4px_rgba(14,165,233,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left cursor-pointer"
           >
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">diversity_3</span>
@@ -167,7 +144,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onStartRace, onNavigat
 
           <button
             onClick={() => onNavigate('modes')}
-            className="p-3 rounded-2xl bg-[#00b17b] text-white shadow-[0_4px_0_0_#006c49,0_10px_18px_-4px_rgba(0,177,123,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left"
+            className="p-3 rounded-2xl bg-[#00b17b] text-white shadow-[0_4px_0_0_#006c49,0_10px_18px_-4px_rgba(0,177,123,0.35)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-2 text-left cursor-pointer"
           >
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">sports_esports</span>

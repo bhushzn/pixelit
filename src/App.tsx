@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameScreen } from './types/game';
 import { HeaderBar } from './ui/components/HeaderBar';
 import { BottomNavDock } from './ui/components/BottomNavDock';
@@ -12,16 +12,27 @@ import { LobbyScreen } from './ui/screens/LobbyScreen';
 import { PlayModesScreen } from './ui/screens/PlayModesScreen';
 import { FriendsScreen } from './ui/screens/FriendsScreen';
 import { PartyLobbyScreen } from './ui/screens/PartyLobbyScreen';
+import { LockerScreen } from './ui/screens/LockerScreen';
+import { ShopScreen } from './ui/screens/ShopScreen';
 import { GameView } from './ui/screens/GameView';
 import { authService } from './services/auth/authService';
+import { progressionService } from './services/progression/progressionService';
 
 export default function App() {
   const [screen, setScreen] = useState<GameScreen>('title');
   const [selectedMapId, setSelectedMapId] = useState<string>('cloud_climb');
   const [isMultiplayer, setIsMultiplayer] = useState<boolean>(false);
   const [activeRoomId, setActiveRoomId] = useState<string>('');
-  const [coins, setCoins] = useState<number>(() => authService.getCurrentUser()?.coins ?? 4850);
-  const [gems] = useState<number>(() => authService.getCurrentUser()?.gems ?? 120);
+  const [coins, setCoins] = useState<number>(() => progressionService.getProgression().totalCoins);
+  const [gems, setGems] = useState<number>(() => progressionService.getProgression().totalGems);
+
+  useEffect(() => {
+    const unsub = progressionService.subscribe((p) => {
+      setCoins(p.totalCoins);
+      setGems(p.totalGems);
+    });
+    return () => unsub();
+  }, []);
 
   const handleStartRace = (mapId?: string, multiplayer = false, roomId = '') => {
     if (mapId) {
@@ -33,16 +44,18 @@ export default function App() {
   };
 
   const handleBackToLobby = () => {
-    const current = authService.getCurrentUser();
-    if (current) {
-      setCoins(current.coins);
-    }
     setIsMultiplayer(false);
     setActiveRoomId('');
     setScreen('lobby');
   };
 
-  const isNavScreen = screen === 'lobby' || screen === 'modes' || screen === 'friends' || screen === 'party';
+  const isNavScreen =
+    screen === 'lobby' ||
+    screen === 'modes' ||
+    screen === 'friends' ||
+    screen === 'party' ||
+    screen === 'heroes' ||
+    screen === 'shop';
 
   return (
     <div className="min-h-screen w-full flex flex-col font-sans-body bg-[#faf8ff] text-[#131b2e] antialiased">
@@ -90,6 +103,18 @@ export default function App() {
           <PartyLobbyScreen
             onNavigate={(target) => setScreen(target)}
             onStartRace={(mapId, mp, rId) => handleStartRace(mapId, mp, rId)}
+          />
+        )}
+
+        {screen === 'heroes' && (
+          <LockerScreen
+            onNavigate={(target) => setScreen(target)}
+          />
+        )}
+
+        {screen === 'shop' && (
+          <ShopScreen
+            onNavigate={(target) => setScreen(target)}
           />
         )}
 

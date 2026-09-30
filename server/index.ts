@@ -116,7 +116,12 @@ wss.on("connection", (ws: WebSocket) => {
             rooms.set(roomId, room);
           }
 
-          const joinResult = room.addPlayer(clientSender, msg.displayName || "Runner", msg.avatarId || "pip");
+          const joinResult = room.addPlayer(
+            clientSender,
+            msg.displayName || "Runner",
+            msg.avatarId || "pip",
+            { skinId: msg.skinId, hatId: msg.hatId, trailId: msg.trailId }
+          );
           if (!joinResult.success) {
             clientSender.send({
               type: "ERROR",

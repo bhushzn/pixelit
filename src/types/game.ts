@@ -8,7 +8,7 @@ export interface RaceStats {
   xpEarned: number;
 }
 
-export type GameScreen = 'title' | 'lobby' | 'modes' | 'race' | 'results' | 'friends' | 'party';
+export type GameScreen = 'title' | 'lobby' | 'modes' | 'race' | 'results' | 'friends' | 'party' | 'heroes' | 'shop';
 
 export type GameModeId = 'quick_race' | 'team_rush' | 'time_trial' | 'custom_room';
 
